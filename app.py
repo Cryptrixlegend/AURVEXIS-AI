@@ -6,20 +6,21 @@ import google.generativeai as genai
 from duckduckgo_search import DDGS
 
 # =====================
-# ENV
+# ENV LOAD
 # =====================
 load_dotenv()
 
-groq_key = os.getenv("GROQ_API_KEY")
-gemini_key = os.getenv("GEMINI_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-if not groq_key or not gemini_key:
-    st.error("Missing API keys")
+if not GROQ_API_KEY or not GEMINI_API_KEY:
+    st.error("Missing API keys in .env file")
     st.stop()
 
-groq_client = Groq(api_key=groq_key)
-genai.configure(api_key=gemini_key)
-gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+groq = Groq(api_key=GROQ_API_KEY)
+
+genai.configure(api_key=GEMINI_API_KEY)
+gemini = genai.GenerativeModel("gemini-1.5-flash")
 
 # =====================
 # PAGE CONFIG
@@ -27,53 +28,26 @@ gemini_model = genai.GenerativeModel("gemini-1.5-flash")
 st.set_page_config(page_title="AURVEXIS AI", page_icon="⚡", layout="wide")
 
 # =====================
-# CSS (RGB + GOLD GLOW UI)
+# CHATGPT STYLE UI
 # =====================
 st.markdown("""
 <style>
-
-@keyframes rgbGlow {
-  0% { color: #ff0000; text-shadow: 0 0 10px #ff0000; }
-  25% { color: #00ff00; text-shadow: 0 0 10px #00ff00; }
-  50% { color: #00ffff; text-shadow: 0 0 10px #00ffff; }
-  75% { color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
-  100% { color: #ff0000; text-shadow: 0 0 10px #ff0000; }
-}
-
-@keyframes goldGlow {
-  0% { color: #ffd700; text-shadow: 0 0 5px #ffd700; }
-  50% { color: #ffcc00; text-shadow: 0 0 20px #ffcc00; }
-  100% { color: #ffd700; text-shadow: 0 0 5px #ffd700; }
-}
-
-body {
-    background-color: #0e0e10;
-    color: white;
-}
+body { background:#0e0e10; color:white; }
 
 .title {
     text-align:center;
     font-size:42px;
-    font-weight:900;
-    animation: rgbGlow 3s infinite;
+    font-weight:800;
+    color:#00ffd5;
 }
 
-.tagline {
+.sub {
     text-align:center;
     color:gray;
-    margin-top:-8px;
-    font-size:14px;
+    margin-bottom:10px;
 }
 
-.dev {
-    text-align:center;
-    font-size:16px;
-    font-weight:bold;
-    animation: goldGlow 2s infinite;
-    margin-bottom:15px;
-}
-
-.chat-user {
+.user {
     background:#1f2937;
     padding:12px;
     border-radius:12px;
@@ -81,7 +55,7 @@ body {
     text-align:right;
 }
 
-.chat-ai {
+.ai {
     background:#111827;
     padding:12px;
     border-radius:12px;
@@ -89,55 +63,43 @@ body {
     text-align:left;
     border-left:3px solid #00ffd5;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
-# =====================
-# HEADER
-# =====================
 st.markdown("<div class='title'>⚡ AURVEXIS AI</div>", unsafe_allow_html=True)
-
-st.markdown(
-    "<div class='tagline'>Think Beyond Limits • Build. Learn. Evolve.</div>",
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    "<div class='dev'>⚡ Built by Tanishq</div>",
-    unsafe_allow_html=True
-)
+st.markdown("<div class='sub'>Think Beyond Limits • ChatGPT Style AI Clone</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align:center;color:#ffd700;'>⚡ Built by Tanishq</div>", unsafe_allow_html=True)
 
 st.markdown("---")
 
 # =====================
 # SIDEBAR
 # =====================
-mode = st.sidebar.selectbox("AI Mode", ["Normal", "Genius", "Funny", "Savage"])
-use_web = st.sidebar.toggle("🌐 Internet Brain", value=False)
+mode = st.sidebar.selectbox("Mode", ["Normal", "Genius", "Funny", "Savage"])
+use_web = st.sidebar.toggle("🌐 Web Brain", value=False)
 
 # =====================
-# MEMORY
+# MEMORY (STABLE)
 # =====================
 if "chat" not in st.session_state:
     st.session_state.chat = []
 
 # =====================
-# SYSTEM PROMPT
+# SYSTEM PROMPT (CONTROLLED AI)
 # =====================
 def system_prompt():
     return f"""
-You are AURVEXIS AI.
+You are AURVEXIS AI, a ChatGPT-style assistant.
 
 RULES:
-- Do not repeat answers
 - Be accurate
+- No repetition
 - If unsure say "I am not sure"
 
 CREATOR RULE:
 If asked who created you:
-Reply:
-"I was developed by Tanishq as AURVEXIS AI, a learning and AI development project."
+Say exactly:
+"I was developed by Tanishq as AURVEXIS AI, a learning AI project."
 
 MODE: {mode}
 """
@@ -148,8 +110,8 @@ MODE: {mode}
 def web_search(query):
     try:
         with DDGS() as ddgs:
-            res = ddgs.text(query, max_results=3)
-        return "\n".join([r.get("body", "") for r in res])
+            r = ddgs.text(query, max_results=3)
+        return "\n".join([i.get("body","") for i in r])
     except:
         return ""
 
@@ -160,33 +122,30 @@ def ask_ai(prompt):
 
     if use_web:
         web = web_search(prompt)
-        prompt = f"Web Info:\n{web}\n\nQuestion: {prompt}"
+        prompt = f"Web Info:\n{web}\n\nUser: {prompt}"
 
     messages = [{"role":"system","content":system_prompt()}]
-    messages += st.session_state.chat
+    messages += st.session_state.chat[-20:]
     messages.append({"role":"user","content":prompt})
 
     try:
-        res = groq_client.chat.completions.create(
+        res = groq.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
             temperature=0.5
         )
         return res.choices[0].message.content
     except:
-        return gemini_model.generate_content(prompt).text
+        return gemini.generate_content(prompt).text
 
 # =====================
-# CHAT DISPLAY
+# CHAT DISPLAY (CLEAN CHATGPT STYLE)
 # =====================
-def render_chat():
-    for msg in st.session_state.chat:
-        if msg["role"] == "user":
-            st.markdown(f"<div class='chat-user'>🧑 {msg['content']}</div>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<div class='chat-ai'>🤖 {msg['content']}</div>", unsafe_allow_html=True)
-
-render_chat()
+for msg in st.session_state.chat:
+    if msg["role"] == "user":
+        st.markdown(f"<div class='user'>🧑 {msg['content']}</div>", unsafe_allow_html=True)
+    else:
+        st.markdown(f"<div class='ai'>🤖 {msg['content']}</div>", unsafe_allow_html=True)
 
 # =====================
 # INPUT

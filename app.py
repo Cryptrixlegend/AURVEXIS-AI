@@ -57,25 +57,39 @@ body {
     background-color: #0e0e10;
     color: white;
 }
-.stChatMessage {
-    border-radius: 12px;
-}
 .title {
     text-align:center;
-    font-size:40px;
-    font-weight:bold;
+    font-size:42px;
+    font-weight:800;
     color:#00ffd5;
 }
-.subtitle {
+.tagline {
     text-align:center;
     color:gray;
-    margin-bottom:20px;
+    font-size:14px;
+    margin-top:-10px;
+}
+.footer {
+    text-align:center;
+    color:gray;
+    margin-top:20px;
 }
 </style>
 """, unsafe_allow_html=True)
 
+# =====================
+# HEADER
+# =====================
 st.markdown("<div class='title'>⚡ AURVEXIS AI</div>", unsafe_allow_html=True)
-st.markdown("<div class='subtitle'>ChatGPT-style AI Assistant</div>", unsafe_allow_html=True)
+
+st.markdown(
+    "<div class='tagline'>Think Beyond Limits • Build. Learn. Evolve.</div>",
+    unsafe_allow_html=True
+)
+
+st.markdown("<div style='text-align:center;color:gray;'>⚡ Built by Tanishq</div>", unsafe_allow_html=True)
+
+st.markdown("---")
 
 # =====================
 # SIDEBAR
@@ -85,17 +99,17 @@ use_web = st.sidebar.toggle("🌐 Internet Brain", value=False)
 voice = st.sidebar.toggle("🔊 Voice", value=False)
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 👨‍💻 Creator")
-st.sidebar.success("Tanishq (Developer + Learner + Builder)")
+st.sidebar.markdown("### 👨‍💻 Developer")
+st.sidebar.success("Tanishq (Creator of AURVEXIS AI)")
 
 # =====================
-# SESSION MEMORY (NO CHAT LOSS)
+# MEMORY
 # =====================
 if "chat" not in st.session_state:
     st.session_state.chat = []
 
 # =====================
-# HISTORY BUILDER
+# HISTORY
 # =====================
 def get_history():
     return [
@@ -104,7 +118,7 @@ def get_history():
     ]
 
 # =====================
-# WEB SEARCH SAFE
+# WEB SEARCH
 # =====================
 def web_search(query):
     try:
@@ -115,24 +129,29 @@ def web_search(query):
         return "Web search unavailable"
 
 # =====================
-# SYSTEM PROMPT (CONTROLLED + CREATOR LOCK)
+# SYSTEM PROMPT (FIXED CREATOR LOGIC)
 # =====================
 def system_prompt():
     return f"""
-You are AURVEXIS AI, an intelligent assistant.
+You are AURVEXIS AI, a smart AI assistant.
 
 RULES:
-- Always be accurate and do not hallucinate facts
+- Be accurate and honest
 - If unsure, say "I am not sure"
-- Never invent false information
-- Creator of this project is Tanishq
-- If asked "who made you", always say:
-  "I was developed by Tanishq as a learning and AI development project."
+- Do NOT repeat answers
+- Keep responses clean and helpful
+
+CREATOR RULE:
+- If user asks "who created you" or "who is your developer":
+  ALWAYS reply:
+  "I was developed by Tanishq as AURVEXIS AI, a learning and AI development project."
+
+ABOUT PROJECT:
+- Built by Tanishq as a learning + experimentation AI project
 
 STYLE:
-- Helpful
-- Clean
 - ChatGPT-like responses
+- Simple, clear, intelligent
 
 MODE: {mode}
 """
@@ -144,13 +163,7 @@ def ask_ai(prompt):
 
     if use_web:
         web_data = web_search(prompt)
-        prompt = f"""
-Use verified web info below:
-{web_data}
-
-Question:
-{prompt}
-"""
+        prompt = f"Web Info:\n{web_data}\n\nQuestion: {prompt}"
 
     messages = [{"role": "system", "content": system_prompt()}]
     messages += get_history()
@@ -172,7 +185,7 @@ Question:
             return "AI currently unavailable"
 
 # =====================
-# TYPE EFFECT (SMOOTH CHATGPT STYLE)
+# TYPE EFFECT
 # =====================
 def type_effect(text):
     placeholder = st.empty()
@@ -220,7 +233,7 @@ if user_input:
     st.session_state.chat.append(("AI", reply))
 
 # =====================
-# CHAT HISTORY (SAFE - NEVER LOSES)
+# HISTORY DISPLAY
 # =====================
 for r, m in st.session_state.chat:
     with st.chat_message("user" if r == "You" else "assistant"):
@@ -231,6 +244,6 @@ for r, m in st.session_state.chat:
 # =====================
 st.markdown("---")
 st.markdown(
-    "<p style='text-align:center;color:gray;'>⚡ AURVEXIS AI • Built by Tanishq</p>",
+    "<div class='footer'>⚡ AURVEXIS AI • Built by Tanishq • Think Beyond Limits</div>",
     unsafe_allow_html=True
 )

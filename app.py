@@ -1,79 +1,95 @@
 import streamlit as st
 import os
-import time
 from dotenv import load_dotenv
 from groq import Groq
 import google.generativeai as genai
 from duckduckgo_search import DDGS
 
 # =====================
-# ENV LOAD
+# ENV
 # =====================
 load_dotenv()
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+groq_key = os.getenv("GROQ_API_KEY")
+gemini_key = os.getenv("GEMINI_API_KEY")
 
-if not GROQ_API_KEY or not GEMINI_API_KEY:
-    st.error("API keys missing in .env file")
+if not groq_key or not gemini_key:
+    st.error("Missing API keys")
     st.stop()
 
-# =====================
-# AI INIT
-# =====================
-groq_client = Groq(api_key=GROQ_API_KEY)
-
-genai.configure(api_key=GEMINI_API_KEY)
+groq_client = Groq(api_key=groq_key)
+genai.configure(api_key=gemini_key)
 gemini_model = genai.GenerativeModel("gemini-1.5-flash")
 
 # =====================
-# SAFE VOICE
+# PAGE CONFIG
 # =====================
-VOICE_ENABLED = False
-try:
-    import pyttsx3
-    engine = pyttsx3.init()
-    VOICE_ENABLED = True
-except:
-    VOICE_ENABLED = False
-
-def speak(text):
-    if VOICE_ENABLED:
-        engine.say(text)
-        engine.runAndWait()
+st.set_page_config(page_title="AURVEXIS AI", page_icon="⚡", layout="wide")
 
 # =====================
-# PAGE CONFIG (CHATGPT STYLE UI)
+# CSS (RGB + GOLD GLOW UI)
 # =====================
-st.set_page_config(
-    page_title="AURVEXIS AI",
-    page_icon="⚡",
-    layout="wide"
-)
-
 st.markdown("""
 <style>
+
+@keyframes rgbGlow {
+  0% { color: #ff0000; text-shadow: 0 0 10px #ff0000; }
+  25% { color: #00ff00; text-shadow: 0 0 10px #00ff00; }
+  50% { color: #00ffff; text-shadow: 0 0 10px #00ffff; }
+  75% { color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
+  100% { color: #ff0000; text-shadow: 0 0 10px #ff0000; }
+}
+
+@keyframes goldGlow {
+  0% { color: #ffd700; text-shadow: 0 0 5px #ffd700; }
+  50% { color: #ffcc00; text-shadow: 0 0 20px #ffcc00; }
+  100% { color: #ffd700; text-shadow: 0 0 5px #ffd700; }
+}
+
 body {
     background-color: #0e0e10;
     color: white;
 }
+
 .title {
     text-align:center;
     font-size:42px;
-    font-weight:800;
-    color:#00ffd5;
+    font-weight:900;
+    animation: rgbGlow 3s infinite;
 }
+
 .tagline {
     text-align:center;
     color:gray;
+    margin-top:-8px;
     font-size:14px;
-    margin-top:-10px;
 }
-.footer {
+
+.dev {
     text-align:center;
-    color:gray;
-    margin-top:20px;
+    font-size:16px;
+    font-weight:bold;
+    animation: goldGlow 2s infinite;
+    margin-bottom:15px;
 }
+
+.chat-user {
+    background:#1f2937;
+    padding:12px;
+    border-radius:12px;
+    margin:10px 0;
+    text-align:right;
+}
+
+.chat-ai {
+    background:#111827;
+    padding:12px;
+    border-radius:12px;
+    margin:10px 0;
+    text-align:left;
+    border-left:3px solid #00ffd5;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -87,7 +103,10 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.markdown("<div style='text-align:center;color:gray;'>⚡ Built by Tanishq</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='dev'>⚡ Built by Tanishq</div>",
+    unsafe_allow_html=True
+)
 
 st.markdown("---")
 
@@ -96,11 +115,6 @@ st.markdown("---")
 # =====================
 mode = st.sidebar.selectbox("AI Mode", ["Normal", "Genius", "Funny", "Savage"])
 use_web = st.sidebar.toggle("🌐 Internet Brain", value=False)
-voice = st.sidebar.toggle("🔊 Voice", value=False)
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 👨‍💻 Developer")
-st.sidebar.success("Tanishq (Creator of AURVEXIS AI)")
 
 # =====================
 # MEMORY
@@ -109,13 +123,24 @@ if "chat" not in st.session_state:
     st.session_state.chat = []
 
 # =====================
-# HISTORY
+# SYSTEM PROMPT
 # =====================
-def get_history():
-    return [
-        {"role": "user" if r == "You" else "assistant", "content": m}
-        for r, m in st.session_state.chat
-    ]
+def system_prompt():
+    return f"""
+You are AURVEXIS AI.
+
+RULES:
+- Do not repeat answers
+- Be accurate
+- If unsure say "I am not sure"
+
+CREATOR RULE:
+If asked who created you:
+Reply:
+"I was developed by Tanishq as AURVEXIS AI, a learning and AI development project."
+
+MODE: {mode}
+"""
 
 # =====================
 # WEB SEARCH
@@ -123,38 +148,10 @@ def get_history():
 def web_search(query):
     try:
         with DDGS() as ddgs:
-            results = ddgs.text(query, max_results=3)
-        return "\n".join([r.get("body", "") for r in results if r.get("body")])
+            res = ddgs.text(query, max_results=3)
+        return "\n".join([r.get("body", "") for r in res])
     except:
-        return "Web search unavailable"
-
-# =====================
-# SYSTEM PROMPT (FIXED CREATOR LOGIC)
-# =====================
-def system_prompt():
-    return f"""
-You are AURVEXIS AI, a smart AI assistant.
-
-RULES:
-- Be accurate and honest
-- If unsure, say "I am not sure"
-- Do NOT repeat answers
-- Keep responses clean and helpful
-
-CREATOR RULE:
-- If user asks "who created you" or "who is your developer":
-  ALWAYS reply:
-  "I was developed by Tanishq as AURVEXIS AI, a learning and AI development project."
-
-ABOUT PROJECT:
-- Built by Tanishq as a learning + experimentation AI project
-
-STYLE:
-- ChatGPT-like responses
-- Simple, clear, intelligent
-
-MODE: {mode}
-"""
+        return ""
 
 # =====================
 # AI ENGINE
@@ -162,12 +159,12 @@ MODE: {mode}
 def ask_ai(prompt):
 
     if use_web:
-        web_data = web_search(prompt)
-        prompt = f"Web Info:\n{web_data}\n\nQuestion: {prompt}"
+        web = web_search(prompt)
+        prompt = f"Web Info:\n{web}\n\nQuestion: {prompt}"
 
-    messages = [{"role": "system", "content": system_prompt()}]
-    messages += get_history()
-    messages.append({"role": "user", "content": prompt})
+    messages = [{"role":"system","content":system_prompt()}]
+    messages += st.session_state.chat
+    messages.append({"role":"user","content":prompt})
 
     try:
         res = groq_client.chat.completions.create(
@@ -176,39 +173,20 @@ def ask_ai(prompt):
             temperature=0.5
         )
         return res.choices[0].message.content
-
     except:
-        try:
-            res = gemini_model.generate_content(prompt)
-            return res.text
-        except:
-            return "AI currently unavailable"
+        return gemini_model.generate_content(prompt).text
 
 # =====================
-# TYPE EFFECT
+# CHAT DISPLAY
 # =====================
-def type_effect(text):
-    placeholder = st.empty()
-    output = ""
+def render_chat():
+    for msg in st.session_state.chat:
+        if msg["role"] == "user":
+            st.markdown(f"<div class='chat-user'>🧑 {msg['content']}</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<div class='chat-ai'>🤖 {msg['content']}</div>", unsafe_allow_html=True)
 
-    for char in text:
-        output += char
-        placeholder.markdown(
-            f"""
-            <div style="
-                background:#1e1e1e;
-                padding:15px;
-                border-radius:12px;
-                color:white;
-                font-size:15px;
-                line-height:1.6;
-            ">
-            {output}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        time.sleep(0.002)
+render_chat()
 
 # =====================
 # INPUT
@@ -216,34 +194,11 @@ def type_effect(text):
 user_input = st.chat_input("Message AURVEXIS AI...")
 
 if user_input:
-    st.session_state.chat.append(("You", user_input))
 
-    with st.chat_message("user"):
-        st.write(user_input)
+    st.session_state.chat.append({"role":"user","content":user_input})
 
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            reply = ask_ai(user_input)
+    reply = ask_ai(user_input)
 
-        type_effect(reply)
+    st.session_state.chat.append({"role":"assistant","content":reply})
 
-        if voice:
-            speak(reply)
-
-    st.session_state.chat.append(("AI", reply))
-
-# =====================
-# HISTORY DISPLAY
-# =====================
-for r, m in st.session_state.chat:
-    with st.chat_message("user" if r == "You" else "assistant"):
-        st.write(m)
-
-# =====================
-# FOOTER
-# =====================
-st.markdown("---")
-st.markdown(
-    "<div class='footer'>⚡ AURVEXIS AI • Built by Tanishq • Think Beyond Limits</div>",
-    unsafe_allow_html=True
-)
+    st.rerun()

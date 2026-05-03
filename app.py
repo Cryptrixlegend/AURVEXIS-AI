@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-import json
 import time
 from dotenv import load_dotenv
 from groq import Groq
@@ -23,11 +22,12 @@ if not GROQ_API_KEY or not GEMINI_API_KEY:
 # AI INIT
 # =====================
 groq_client = Groq(api_key=GROQ_API_KEY)
+
 genai.configure(api_key=GEMINI_API_KEY)
 gemini_model = genai.GenerativeModel("gemini-1.5-flash")
 
 # =====================
-# SAFE VOICE INIT (FIXED CRASH)
+# SAFE VOICE (Streamlit safe)
 # =====================
 VOICE_ENABLED = False
 
@@ -44,7 +44,7 @@ def speak(text):
         engine.runAndWait()
 
 # =====================
-# PAGE UI
+# PAGE CONFIG
 # =====================
 st.set_page_config(page_title="AURVEXIS AI", page_icon="⚡", layout="wide")
 
@@ -52,14 +52,13 @@ st.markdown(
     """
     <h1 style='text-align:center;'>⚡ AURVEXIS AI</h1>
     <h4 style='text-align:center;color:gray;'>Built by Tanishq</h4>
-    <p style='text-align:center;color:#888;'>Think Beyond Limits • AI System</p>
     <hr>
     """,
     unsafe_allow_html=True
 )
 
 # =====================
-# SIDEBAR SETTINGS
+# SIDEBAR
 # =====================
 mode = st.sidebar.selectbox("AI Mode", ["Normal", "Genius", "Funny", "Savage"])
 use_web = st.sidebar.toggle("🌐 Internet Brain", value=False)
@@ -68,13 +67,13 @@ voice = st.sidebar.toggle("🔊 Voice (Safe Mode)", value=False)
 st.sidebar.success("System Active")
 
 # =====================
-# MEMORY DB
+# CHAT MEMORY
 # =====================
 if "chat" not in st.session_state:
     st.session_state.chat = []
 
 # =====================
-# HISTORY BUILDER
+# HISTORY
 # =====================
 def get_history():
     return [
@@ -83,14 +82,18 @@ def get_history():
     ]
 
 # =====================
-# WEB SEARCH
+# SAFE WEB SEARCH
 # =====================
 def web_search(query):
-    results = DDGS().text(query, max_results=3)
-    return "\n".join([r["body"] for r in results])
+    try:
+        with DDGS() as ddgs:
+            results = ddgs.text(query, max_results=3)
+        return "\n".join([r.get("body", "") for r in results])
+    except:
+        return "Web search failed"
 
 # =====================
-# SYSTEM PROMPTS (MODES)
+# SYSTEM PROMPT MODES
 # =====================
 def system_prompt():
     if mode == "Normal":
@@ -100,19 +103,16 @@ def system_prompt():
     elif mode == "Funny":
         return "You are a funny AI assistant."
     elif mode == "Savage":
-        return "You are a witty savage AI but not offensive."
+        return "You are a witty but respectful AI."
 
 # =====================
-# AI ENGINE (SMART ROUTER)
+# AI ENGINE
 # =====================
 def ask_ai(prompt):
 
     if use_web:
-        try:
-            web_data = web_search(prompt)
-            prompt = f"Use this info:\n{web_data}\n\nQuestion: {prompt}"
-        except:
-            pass
+        web_data = web_search(prompt)
+        prompt = f"Use this info:\n{web_data}\n\nQuestion: {prompt}"
 
     messages = [{"role": "system", "content": system_prompt()}]
     messages += get_history()
@@ -134,7 +134,7 @@ def ask_ai(prompt):
             return "AI unavailable"
 
 # =====================
-# TYPING EFFECT (FIXED UI)
+# TYPE EFFECT UI
 # =====================
 def type_effect(text):
     placeholder = st.empty()
@@ -143,21 +143,10 @@ def type_effect(text):
     for char in text:
         output += char
         placeholder.markdown(
-            f"""
-            <div style="
-                font-size:16px;
-                line-height:1.6;
-                background:#111;
-                padding:10px;
-                border-radius:10px;
-                color:white;
-            ">
-            {output}
-            </div>
-            """,
+            f"<div style='background:#111;padding:10px;border-radius:10px;color:white;'>{output}</div>",
             unsafe_allow_html=True
         )
-        time.sleep(0.005)
+        time.sleep(0.003)
 
 # =====================
 # INPUT
@@ -176,14 +165,13 @@ if user_input:
 
         type_effect(reply)
 
-        # SAFE VOICE
         if voice:
             speak(reply)
 
     st.session_state.chat.append(("AI", reply))
 
 # =====================
-# CHAT HISTORY
+# HISTORY DISPLAY
 # =====================
 for r, m in st.session_state.chat[:-1]:
     with st.chat_message("user" if r == "You" else "assistant"):

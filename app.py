@@ -45,8 +45,8 @@ body { background:#0e0e10; color:white; }
 """, unsafe_allow_html=True)
 
 st.markdown("<div class='title'>⚡ AURVEXIS AI</div>", unsafe_allow_html=True)
-st.markdown("<div class='sub'>Think Beyond Limits • ChatGPT Style AI Clone</div>", unsafe_allow_html=True)
-st.markdown("<div style='text-align:center;color:#ffd700;'>⚡ Built by Tanishq</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub'>Think Beyond Limits </div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align:center;color:#ffd700;'>⚡ Built by Tanishq(CRYPTRIXLEGEND)</div>", unsafe_allow_html=True)
 
 st.markdown("---")
 

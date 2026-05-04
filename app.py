@@ -32,15 +32,56 @@ gemini = genai.GenerativeModel("gemini-1.5-flash")
 st.set_page_config(page_title="AURVEXIS AI", page_icon="⚡", layout="wide")
 
 # =====================
-# UI
+# UI (UPGRADED)
 # =====================
 st.markdown("""
 <style>
 body { background:#0e0e10; color:white; }
-.title { text-align:center;font-size:42px;font-weight:800;color:#00ffd5;}
-.sub { text-align:center;color:gray;margin-bottom:10px;}
-.user {background:#1f2937;padding:12px;border-radius:12px;margin:10px 0;text-align:right;}
-.ai {background:#111827;padding:12px;border-radius:12px;margin:10px 0;text-align:left;border-left:3px solid #00ffd5;}
+
+.title {
+    text-align:center;
+    font-size:42px;
+    font-weight:800;
+    color:#00ffd5;
+    animation: glow 2s infinite alternate;
+}
+
+@keyframes glow {
+    from { text-shadow: 0 0 5px #00ffd5; }
+    to { text-shadow: 0 0 20px #00ffd5; }
+}
+
+.sub {
+    text-align:center;
+    color:gray;
+    margin-bottom:10px;
+}
+
+.user {
+    background:#2563eb;
+    padding:12px 16px;
+    border-radius:18px 18px 4px 18px;
+    margin:10px 0;
+    text-align:right;
+    max-width:70%;
+    margin-left:auto;
+}
+
+.ai {
+    background:#1f2937;
+    padding:12px 16px;
+    border-radius:18px 18px 18px 4px;
+    margin:10px 0;
+    text-align:left;
+    max-width:70%;
+    border-left:3px solid #00ffd5;
+}
+
+[data-testid="stChatInput"] {
+    background:#111827;
+    border:1px solid #00ffd5;
+    border-radius:12px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -53,8 +94,15 @@ st.markdown("---")
 # =====================
 # SIDEBAR
 # =====================
-mode = st.sidebar.selectbox("Mode", ["Normal", "Genius", "Funny", "Savage"])
+st.sidebar.markdown("## ⚙️ Controls")
+st.sidebar.markdown("---")
+
+mode = st.sidebar.selectbox("Mode", ["Normal", "Genius", "Motivator", "Savage"])
 use_web = st.sidebar.toggle("🌐 Web Brain", value=False)
+
+if st.sidebar.button("🧹 Clear Chat"):
+    st.session_state.chat = []
+    st.rerun()
 
 # =====================
 # STATE INIT
@@ -72,48 +120,49 @@ if "last_request_time" not in st.session_state:
     st.session_state.last_request_time = 0
 
 # =====================
-# PERSONALITY SYSTEM
+# SYSTEM PROMPT
 # =====================
 def system_prompt():
 
     personalities = {
-        "Normal": "Be helpful, clear, and supportive.",
-        "Genius": "Give deep, structured, expert-level answers.",
-        "Funny": "Be helpful but include humor and wit.",
-        "Savage": "Be bold, brutally honest, and sharp."
+        "Normal": "Be helpful and clear.",
+        "Genius": "Provide deep, expert-level structured answers.",
+        "Motivator": "Act like a powerful mentor. Push the user, motivate them, build confidence, but stay realistic.",
+        "Savage": "Be brutally honest, sharp, and direct but not toxic."
     }
 
     memory_context = "\n".join(st.session_state.memory[-5:])
 
     return f"""
-You are AURVEXIS AI, an advanced assistant.
+You are AURVEXIS AI.
 
-CORE BEHAVIOR:
-- Be intelligent, accurate, and clear
-- Support the user, but DO NOT support wrong facts blindly
-- If user is wrong, correct them respectfully
-- Never repeat unnecessarily
+CORE:
+- Be accurate and intelligent
+- Support the user strongly
+- NEVER blindly agree with wrong facts
+- Correct user respectfully
 
-LOYALTY MODE:
-- You stand with the user, guide them, and help them improve
-- You do not abandon the user, but you also do not mislead them
+LOYALTY:
+- You stand with the user
+- You guide, protect, and push them forward
+- You are like a mentor + ally
 
 MEMORY:
 {memory_context}
 
-CREATOR RULE (STRICT):
+CREATOR RULE:
 If asked who created you, say EXACTLY:
 "I was developed by Tanishq as AURVEXIS AI, a learning AI project."
 
-PERSONALITY:
+MODE:
 {personalities.get(mode)}
 """
 
 # =====================
-# MEMORY UPDATE
+# MEMORY
 # =====================
 def update_memory(user_input):
-    triggers = ["my name is", "i like", "i am", "my goal"]
+    triggers = ["my name is", "i am", "i want", "my goal"]
     for t in triggers:
         if t in user_input.lower():
             st.session_state.memory.append(user_input)
@@ -124,31 +173,24 @@ def update_memory(user_input):
 def sanitize(text):
     if not text:
         return ""
-    blacklist = [
-        "ignore previous instructions",
-        "act as system",
-        "bypass rules"
-    ]
+    blacklist = ["ignore previous instructions", "bypass rules"]
     for word in blacklist:
         text = text.replace(word, "")
     return text[:1000]
 
 # =====================
-# WEB SEARCH (IMPROVED)
+# WEB SEARCH
 # =====================
 def web_search(query):
     try:
         with DDGS() as ddgs:
             results = ddgs.text(query, max_results=3)
 
-        formatted = []
-        for r in results:
-            formatted.append(f"{r.get('title')} - {sanitize(r.get('body',''))}")
-
-        return "\n".join(formatted)
-
-    except Exception as e:
-        logging.error(f"Web search failed: {e}")
+        return "\n".join([
+            f"{r.get('title')} - {sanitize(r.get('body',''))}"
+            for r in results
+        ])
+    except:
         return ""
 
 # =====================
@@ -192,20 +234,24 @@ def generate_ai(prompt):
             temperature=0.6,
             max_tokens=700
         )
-        content = res.choices[0].message.content
-        if content:
-            return content
+        return res.choices[0].message.content
+    except:
+        try:
+            res = gemini.generate_content(system_prompt() + prompt)
+            return res.text
+        except:
+            return "⚠️ AI unavailable"
 
-    except Exception as e:
-        logging.warning(f"Groq failed: {e}")
-
-    try:
-        full_prompt = system_prompt() + "\nUser: " + prompt
-        res = gemini.generate_content(full_prompt)
-        return res.text if res.text else "⚠️ No response"
-    except Exception as e:
-        logging.error(f"Gemini failed: {e}")
-        return "⚠️ AI is temporarily unavailable."
+# =====================
+# TYPE EFFECT
+# =====================
+def type_effect(text):
+    placeholder = st.empty()
+    typed = ""
+    for char in text:
+        typed += char
+        placeholder.markdown(f"<div class='ai'>🤖 {typed}</div>", unsafe_allow_html=True)
+        time.sleep(0.005)
 
 # =====================
 # MAIN ENGINE
@@ -221,7 +267,7 @@ def ask_ai(user_input):
 
     if use_web:
         web = web_search(user_input)
-        user_input = f"Web Context:\n{web}\n\nUser Question: {user_input}"
+        user_input = f"Web Context:\n{web}\n\nUser: {user_input}"
 
     key = make_cache_key(user_input)
 
@@ -229,7 +275,8 @@ def ask_ai(user_input):
     if cached:
         return cached
 
-    response = generate_ai(user_input)
+    with st.spinner("⚡ AURVEXIS is thinking..."):
+        response = generate_ai(user_input)
 
     set_cache(key, response)
 
@@ -256,4 +303,4 @@ if user_input:
 
     st.session_state.chat.append({"role": "assistant", "content": reply})
 
-    st.rerun()
+    type_effect(reply)

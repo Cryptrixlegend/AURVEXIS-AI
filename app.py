@@ -1,85 +1,68 @@
 import streamlit as st
-import os, time, hashlib, logging, sqlite3
+import os, time, hashlib, sqlite3
 from dotenv import load_dotenv
 from groq import Groq
 import google.generativeai as genai
 from duckduckgo_search import DDGS
 
-# =====================
-# OPTIONAL VOICE (SAFE)
-# =====================
+# =========================
+# OPTIONAL VOICE SAFE
+# =========================
 try:
     import speech_recognition as sr
-    VOICE_AVAILABLE = True
+    VOICE = True
 except:
-    VOICE_AVAILABLE = False
+    VOICE = False
 
-# =====================
+# =========================
 # ENV
-# =====================
+# =========================
 load_dotenv()
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-if not GROQ_API_KEY or not GEMINI_API_KEY:
-    st.error("Missing API keys")
-    st.stop()
-
-groq = Groq(api_key=GROQ_API_KEY)
-genai.configure(api_key=GEMINI_API_KEY)
+groq = Groq(api_key=os.getenv("GROQ_API_KEY"))
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 gemini = genai.GenerativeModel("gemini-1.5-flash")
 
-# =====================
-# DB (REAL MEMORY)
-# =====================
-conn = sqlite3.connect("aurvexis_memory.db", check_same_thread=False)
-cursor = conn.cursor()
+# =========================
+# DB MEMORY (REAL)
+# =========================
+db = sqlite3.connect("aurvexis.db", check_same_thread=False)
+cur = db.cursor()
 
-cursor.execute("""
+cur.execute("""
 CREATE TABLE IF NOT EXISTS memory (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    role TEXT,
-    content TEXT,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+role TEXT,
+content TEXT
 )
 """)
-conn.commit()
+db.commit()
 
-def save_memory(role, content):
-    cursor.execute("INSERT INTO memory (role, content) VALUES (?, ?)", (role, content))
-    conn.commit()
+def save(role, content):
+    cur.execute("INSERT INTO memory(role, content) VALUES(?,?)", (role, content))
+    db.commit()
 
-def load_memory(limit=20):
-    cursor.execute("SELECT role, content FROM memory ORDER BY id DESC LIMIT ?", (limit,))
-    rows = cursor.fetchall()
-    return [{"role": r, "content": c} for r, c in reversed(rows)]
+def load():
+    cur.execute("SELECT role, content FROM memory ORDER BY id DESC LIMIT 20")
+    return [{"role": r, "content": c} for r, c in reversed(cur.fetchall())]
 
-# =====================
+# =========================
 # PAGE
-# =====================
+# =========================
 st.set_page_config(page_title="AURVEXIS AI", page_icon="⚡", layout="wide")
 
-# =====================
-# STATE
-# =====================
 if "chat" not in st.session_state:
     st.session_state.chat = []
 
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
 
-if "cache" not in st.session_state:
-    st.session_state.cache = {}
-
-# =====================
-# THEME FIXED
-# =====================
-def apply_theme():
-    if st.session_state.theme == "dark":
-        bg, text, ai, user = "#0e0e10", "white", "#1f2937", "#2563eb"
-    else:
-        bg, text, ai, user = "#ffffff", "#111", "#f3f4f6", "#dbeafe"
+# =========================
+# UI
+# =========================
+def ui():
+    bg = "#0e0e10" if st.session_state.theme == "dark" else "#ffffff"
+    text = "white" if st.session_state.theme == "dark" else "#111"
 
     st.markdown(f"""
     <style>
@@ -87,159 +70,113 @@ def apply_theme():
 
     .title {{
         text-align:center;
-        font-size:44px;
+        font-size:42px;
         font-weight:900;
         color:#00ffd5;
     }}
 
-    .brand {{
-        text-align:center;
-        color:#ffd700;
-        font-weight:800;
-    }}
-
-    .user {{
-        background:{user};
-        padding:12px;
-        border-radius:14px;
-        margin:8px 0;
+    .msg-user {{
+        background:#2563eb;
+        padding:10px;
+        margin:8px;
+        border-radius:12px;
         text-align:right;
     }}
 
-    .ai {{
-        background:{ai};
-        padding:12px;
-        border-radius:14px;
-        margin:8px 0;
+    .msg-ai {{
+        background:#1f2937;
+        padding:10px;
+        margin:8px;
+        border-radius:12px;
         border-left:3px solid #00ffd5;
+    }}
+
+    .dots span {{
+        animation: blink 1s infinite;
+        font-size:20px;
+    }}
+
+    @keyframes blink {{
+        0% {{ opacity:0; }}
+        50% {{ opacity:1; }}
+        100% {{ opacity:0; }}
     }}
     </style>
     """, unsafe_allow_html=True)
 
-apply_theme()
+ui()
 
-# =====================
+# =========================
 # HEADER
-# =====================
+# =========================
 st.markdown("<div class='title'>⚡ AURVEXIS AI</div>", unsafe_allow_html=True)
-st.markdown("<div class='brand'>AURVEXIS LABS</div>", unsafe_allow_html=True)
-st.markdown("<center>Think Beyond Limits</center>", unsafe_allow_html=True)
+st.markdown("<center>AURVEXIS LABS • Think Beyond Limits</center>", unsafe_allow_html=True)
 st.markdown("---")
 
-# =====================
+# =========================
 # SIDEBAR
-# =====================
-st.sidebar.title("⚙️ Controls")
-
+# =========================
 mode = st.sidebar.selectbox("Mode", ["Normal", "Genius", "Motivator", "Savage"])
-use_web = st.sidebar.toggle("🌐 Web Agent", True)
+web = st.sidebar.toggle("🌐 Web Brain", True)
 
-if VOICE_AVAILABLE:
-    voice_btn = st.sidebar.button("🎤 Voice Input")
+if VOICE:
+    voice_btn = st.sidebar.button("🎤 Voice")
 else:
     voice_btn = False
-    st.sidebar.warning("Voice not supported in this environment")
 
-if st.sidebar.button("🌗 Toggle Theme"):
+if st.sidebar.button("🌗 Theme"):
     st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
     st.rerun()
 
-if st.sidebar.button("🧹 Clear Chat"):
+if st.sidebar.button("🧹 Clear"):
     st.session_state.chat = []
 
-# =====================
-# VOICE (SAFE)
-# =====================
-def voice_input():
+# =========================
+# MEMORY
+# =========================
+def memory_text():
+    return "\n".join([f"{m['role']}: {m['content']}" for m in load()])
+
+# =========================
+# WEB AGENT
+# =========================
+def web_search(q):
     try:
-        r = sr.Recognizer()
-        with sr.Microphone() as source:
-            st.info("Listening...")
-            audio = r.listen(source, timeout=5)
-        return r.recognize_google(audio)
-    except:
-        return "Voice not available"
-
-# =====================
-# MEMORY (DB + CONTEXT)
-# =====================
-def get_memory_context():
-    memory = load_memory()
-    return "\n".join([f"{m['role']}: {m['content']}" for m in memory])
-
-# =====================
-# WEB AGENT (IMPROVED)
-# =====================
-def web_search(query):
-    try:
-        with DDGS() as ddgs:
-            results = ddgs.text(query, max_results=5)
-
-        return "\n".join(
-            f"{r.get('title')} - {r.get('body')}"
-            for r in results if r.get("body")
-        )
+        with DDGS() as d:
+            r = d.text(q, max_results=5)
+        return "\n".join([i["title"] + " - " + i.get("body","") for i in r])
     except:
         return ""
 
-# =====================
-# PLUGINS
-# =====================
-def run_plugins(text):
-    if text.startswith("calc:"):
-        try:
-            return str(eval(text.replace("calc:", "")))
-        except:
-            return "Calc error"
-    return None
-
-# =====================
-# CACHE
-# =====================
-def cache_key(prompt):
-    return hashlib.md5(prompt.encode()).hexdigest()
-
-# =====================
-# SYSTEM PROMPT (FIXED IDENTITY)
-# =====================
-def system_prompt():
+# =========================
+# SYSTEM PROMPT
+# =========================
+def system():
     return f"""
-You are AURVEXIS AI.
+You are AURVEXIS AI made by AURVEXIS LABS.
 
-COMPANY: AURVEXIS LABS
-CREATOR: Tanishq
-
-RULE:
-If user asks "who created you":
-Say:
-"I was created by Tanishq under AURVEXIS LABS as AURVEXIS AI."
+Always answer naturally like ChatGPT.
+Never repeat same sentence.
 
 MODE: {mode}
-
-Be helpful, logical, and strict with truth.
 """
 
-# =====================
-# AI CORE
-# =====================
-def generate(prompt):
+# =========================
+# AI ENGINE
+# =========================
+def ai(prompt):
 
-    plugin = run_plugins(prompt)
-    if plugin:
-        return f"🧩 {plugin}"
+    mem = memory_text()
 
-    memory = get_memory_context()
-
-    if use_web:
-        web = web_search(prompt)
-        prompt = f"WEB:\n{web}\n\nUSER:{prompt}"
+    if web:
+        prompt = f"WEB CONTEXT:\n{web_search(prompt)}\n\nUSER:{prompt}"
 
     messages = [
-        {"role": "system", "content": system_prompt() + "\nMEMORY:\n" + memory}
+        {"role":"system","content":system() + "\nMEMORY:\n" + mem}
     ]
 
     messages += st.session_state.chat[-6:]
-    messages.append({"role": "user", "content": prompt})
+    messages.append({"role":"user","content":prompt})
 
     try:
         res = groq.chat.completions.create(
@@ -252,42 +189,61 @@ def generate(prompt):
     except:
         return gemini.generate_content(prompt).text
 
-# =====================
+# =========================
+# CHATGPT STYLE STREAMING
+# =========================
+def stream(text):
+    box = st.empty()
+    out = ""
+
+    for word in text.split():
+        out += word + " "
+        box.markdown(f"<div class='msg-ai'>🤖 {out}▌</div>", unsafe_allow_html=True)
+        time.sleep(0.05)
+
+    box.markdown(f"<div class='msg-ai'>🤖 {out}</div>", unsafe_allow_html=True)
+
+# =========================
+# VOICE
+# =========================
+def voice():
+    try:
+        r = sr.Recognizer()
+        with sr.Microphone() as s:
+            audio = r.listen(s, timeout=5)
+        return r.recognize_google(audio)
+    except:
+        return "voice error"
+
+# =========================
 # INPUT
-# =====================
+# =========================
 if voice_btn:
-    user_input = voice_input()
+    user = voice()
 else:
-    user_input = st.chat_input("Ask AURVEXIS...")
+    user = st.chat_input("Talk to AURVEXIS...")
 
-# =====================
-# CHAT FLOW (FIXED ORDER)
-# =====================
-if user_input:
+# =========================
+# RUN
+# =========================
+if user:
 
-    save_memory("user", user_input)
+    st.session_state.chat.append({"role":"user","content":user})
+    save("user", user)
 
-    st.session_state.chat.append({"role": "user", "content": user_input})
+    with st.markdown("<div class='dots'><span>● ● ●</span></div>", unsafe_allow_html=True):
+        time.sleep(0.6)
 
-    key = cache_key(user_input)
-    cached = st.session_state.cache.get(key)
+    reply = ai(user)
 
-    if cached:
-        reply = cached
-    else:
-        with st.spinner("AURVEXIS thinking..."):
-            reply = generate(user_input)
-        st.session_state.cache[key] = reply
+    st.session_state.chat.append({"role":"assistant","content":reply})
+    save("assistant", reply)
 
-    save_memory("assistant", reply)
+    stream(reply)
 
-    st.session_state.chat.append({"role": "assistant", "content": reply})
-
-# =====================
-# DISPLAY (FIXED ORDER)
-# =====================
-for msg in st.session_state.chat:
-    if msg["role"] == "user":
-        st.markdown(f"<div class='user'>🧑 {msg['content']}</div>", unsafe_allow_html=True)
-    else:
-        st.markdown(f"<div class='ai'>🤖 {msg['content']}</div>", unsafe_allow_html=True)
+# =========================
+# HISTORY
+# =========================
+for m in st.session_state.chat:
+    if m["role"] == "user":
+        st.markdown(f"<div class='msg-user'>🧑 {m['content']}</div>", unsafe_allow_html=True)

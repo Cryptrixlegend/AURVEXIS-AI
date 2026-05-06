@@ -73,6 +73,16 @@ if "cache" not in st.session_state:
     st.session_state.cache = {}
 
 # =====================
+# PERSONALITIES (RESTORED)
+# =====================
+PERSONALITIES = {
+    "Normal": "Be helpful, balanced, and clear.",
+    "Genius": "Give deep, structured, expert-level explanations.",
+    "Motivator": "Act like a strong mentor. Push user to improve, stay realistic but inspiring.",
+    "Savage": "Be brutally honest, sharp, direct but not toxic."
+}
+
+# =====================
 # THEME FIXED
 # =====================
 def apply_theme():
@@ -119,7 +129,7 @@ def apply_theme():
 apply_theme()
 
 # =====================
-# HEADER
+# HEADER (FIXED IDENTITY)
 # =====================
 st.markdown("<div class='title'>⚡ AURVEXIS AI</div>", unsafe_allow_html=True)
 st.markdown("<div class='brand'>AURVEXIS LABS</div>", unsafe_allow_html=True)
@@ -131,7 +141,7 @@ st.markdown("---")
 # =====================
 st.sidebar.title("⚙️ Controls")
 
-mode = st.sidebar.selectbox("Mode", ["Normal", "Genius", "Motivator", "Savage"])
+mode = st.sidebar.selectbox("Mode", list(PERSONALITIES.keys()))
 use_web = st.sidebar.toggle("🌐 Web Agent", True)
 
 if VOICE_AVAILABLE:
@@ -148,7 +158,7 @@ if st.sidebar.button("🧹 Clear Chat"):
     st.session_state.chat = []
 
 # =====================
-# VOICE (SAFE)
+# VOICE
 # =====================
 def voice_input():
     try:
@@ -161,14 +171,14 @@ def voice_input():
         return "Voice not available"
 
 # =====================
-# MEMORY (DB + CONTEXT)
+# MEMORY
 # =====================
 def get_memory_context():
     memory = load_memory()
     return "\n".join([f"{m['role']}: {m['content']}" for m in memory])
 
 # =====================
-# WEB AGENT (IMPROVED)
+# WEB AGENT
 # =====================
 def web_search(query):
     try:
@@ -183,40 +193,30 @@ def web_search(query):
         return ""
 
 # =====================
-# PLUGINS
-# =====================
-def run_plugins(text):
-    if text.startswith("calc:"):
-        try:
-            return str(eval(text.replace("calc:", "")))
-        except:
-            return "Calc error"
-    return None
-
-# =====================
 # CACHE
 # =====================
 def cache_key(prompt):
     return hashlib.md5(prompt.encode()).hexdigest()
 
 # =====================
-# SYSTEM PROMPT (FIXED IDENTITY)
+# SYSTEM PROMPT (FIXED COMPANY + CREATOR)
 # =====================
 def system_prompt():
     return f"""
 You are AURVEXIS AI.
 
 COMPANY: AURVEXIS LABS
-CREATOR: Tanishq
+CREATOR: Tanishq (single founder, not a team)
 
-RULE:
+RULE (VERY IMPORTANT):
 If user asks "who created you":
-Say:
+Respond EXACTLY:
 "I was created by Tanishq under AURVEXIS LABS as AURVEXIS AI."
 
-MODE: {mode}
+PERSONALITY MODE:
+{PERSONALITIES.get(mode)}
 
-Be helpful, logical, and strict with truth.
+Be natural, human-like, and helpful. Do not repeat answers.
 """
 
 # =====================
@@ -224,15 +224,11 @@ Be helpful, logical, and strict with truth.
 # =====================
 def generate(prompt):
 
-    plugin = run_plugins(prompt)
-    if plugin:
-        return f"🧩 {plugin}"
-
     memory = get_memory_context()
 
     if use_web:
         web = web_search(prompt)
-        prompt = f"WEB:\n{web}\n\nUSER:{prompt}"
+        prompt = f"WEB DATA:\n{web}\n\nUSER:{prompt}"
 
     messages = [
         {"role": "system", "content": system_prompt() + "\nMEMORY:\n" + memory}
@@ -261,26 +257,23 @@ else:
     user_input = st.chat_input("Ask AURVEXIS...")
 
 # =====================
-# CHAT FLOW (FIXED ORDER)
+# CHAT FLOW
 # =====================
 if user_input:
 
     save_memory("user", user_input)
-
     st.session_state.chat.append({"role": "user", "content": user_input})
 
     key = cache_key(user_input)
-    cached = st.session_state.cache.get(key)
 
-    if cached:
-        reply = cached
+    if key in st.session_state.cache:
+        reply = st.session_state.cache[key]
     else:
         with st.spinner("AURVEXIS thinking..."):
             reply = generate(user_input)
         st.session_state.cache[key] = reply
 
     save_memory("assistant", reply)
-
     st.session_state.chat.append({"role": "assistant", "content": reply})
 
 # =====================

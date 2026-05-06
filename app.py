@@ -4,7 +4,15 @@ from dotenv import load_dotenv
 from groq import Groq
 import google.generativeai as genai
 from duckduckgo_search import DDGS
-import speech_recognition as sr
+
+# =====================
+# SAFE VOICE IMPORT
+# =====================
+try:
+    import speech_recognition as sr
+    VOICE_AVAILABLE = True
+except:
+    VOICE_AVAILABLE = False
 
 # =====================
 # ENV LOAD
@@ -44,7 +52,7 @@ if "theme" not in st.session_state:
     st.session_state.theme = "dark"
 
 # =====================
-# THEME SYSTEM
+# THEME
 # =====================
 def apply_theme():
     if st.session_state.theme == "dark":
@@ -67,7 +75,6 @@ def apply_theme():
         text-align:center;
         color:#ffd700;
         font-weight:800;
-        font-size:18px;
     }}
 
     .user {{
@@ -105,7 +112,12 @@ st.sidebar.title("⚙️ AURVEXIS Controls")
 
 mode = st.sidebar.selectbox("Mode", ["Normal", "Genius", "Motivator", "Savage"])
 use_web = st.sidebar.toggle("🌐 Web Brain")
-voice_btn = st.sidebar.button("🎤 Voice Input")
+
+if VOICE_AVAILABLE:
+    voice_btn = st.sidebar.button("🎤 Voice Input")
+else:
+    st.sidebar.warning("🎤 Voice not supported here")
+    voice_btn = False
 
 if st.sidebar.button("🌗 Toggle Theme"):
     st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
@@ -117,9 +129,12 @@ if st.sidebar.button("🧹 Clear Chat"):
     st.rerun()
 
 # =====================
-# VOICE INPUT (SAFE)
+# VOICE INPUT
 # =====================
 def voice_input():
+    if not VOICE_AVAILABLE:
+        return "Voice not available"
+
     try:
         r = sr.Recognizer()
         with sr.Microphone() as source:
@@ -155,18 +170,14 @@ def web_search(query):
         return ""
 
 # =====================
-# SAFE PLUGINS
+# PLUGINS (SAFE)
 # =====================
 def run_plugins(text):
-
     if text.startswith("calc:"):
         try:
             return str(eval(text.replace("calc:", "")))
         except:
             return "Calc error"
-
-    # Removed dangerous exec()
-
     return None
 
 # =====================

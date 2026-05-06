@@ -1,12 +1,10 @@
 import streamlit as st
-import os
-import logging
-import hashlib
-import time
+import os, time, hashlib, logging
 from dotenv import load_dotenv
 from groq import Groq
 import google.generativeai as genai
 from duckduckgo_search import DDGS
+import speech_recognition as sr
 
 # =====================
 # ENV LOAD
@@ -22,7 +20,6 @@ if not GROQ_API_KEY or not GEMINI_API_KEY:
     st.stop()
 
 groq = Groq(api_key=GROQ_API_KEY)
-
 genai.configure(api_key=GEMINI_API_KEY)
 gemini = genai.GenerativeModel("gemini-1.5-flash")
 
@@ -32,151 +29,115 @@ gemini = genai.GenerativeModel("gemini-1.5-flash")
 st.set_page_config(page_title="AURVEXIS AI", page_icon="⚡", layout="wide")
 
 # =====================
-# UI (UPGRADED)
-# =====================
-st.markdown("""
-<style>
-body { background:#0e0e10; color:white; }
-
-.title {
-    text-align:center;
-    font-size:42px;
-    font-weight:800;
-    color:#00ffd5;
-    animation: glow 2s infinite alternate;
-}
-
-@keyframes glow {
-    from { text-shadow: 0 0 5px #00ffd5; }
-    to { text-shadow: 0 0 20px #00ffd5; }
-}
-
-.sub {
-    text-align:center;
-    color:gray;
-    margin-bottom:10px;
-}
-
-.user {
-    background:#2563eb;
-    padding:12px 16px;
-    border-radius:18px 18px 4px 18px;
-    margin:10px 0;
-    text-align:right;
-    max-width:70%;
-    margin-left:auto;
-}
-
-.ai {
-    background:#1f2937;
-    padding:12px 16px;
-    border-radius:18px 18px 18px 4px;
-    margin:10px 0;
-    text-align:left;
-    max-width:70%;
-    border-left:3px solid #00ffd5;
-}
-
-[data-testid="stChatInput"] {
-    background:#111827;
-    border:1px solid #00ffd5;
-    border-radius:12px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("<div class='title'>⚡ AURVEXIS AI</div>", unsafe_allow_html=True)
-st.markdown("<div class='sub'>Think Beyond Limits</div>", unsafe_allow_html=True)
-st.markdown("<div style='text-align:center;color:#ffd700;'>⚡ Built by Tanishq (CRYPTRIXLEGEND)</div>", unsafe_allow_html=True)
-
-st.markdown("---")
-
-# =====================
-# SIDEBAR
-# =====================
-st.sidebar.markdown("## ⚙️ Controls")
-st.sidebar.markdown("---")
-
-mode = st.sidebar.selectbox("Mode", ["Normal", "Genius", "Motivator", "Savage"])
-use_web = st.sidebar.toggle("🌐 Web Brain", value=False)
-
-if st.sidebar.button("🧹 Clear Chat"):
-    st.session_state.chat = []
-    st.rerun()
-
-# =====================
-# STATE INIT
+# STATE
 # =====================
 if "chat" not in st.session_state:
     st.session_state.chat = []
 
 if "memory" not in st.session_state:
-    st.session_state.memory = []
+    st.session_state.memory = {}
 
 if "cache" not in st.session_state:
     st.session_state.cache = {}
 
-if "last_request_time" not in st.session_state:
-    st.session_state.last_request_time = 0
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
 
 # =====================
-# SYSTEM PROMPT
+# THEME SYSTEM
 # =====================
-def system_prompt():
+def apply_theme():
+    if st.session_state.theme == "dark":
+        bg, text, ai, user = "#0e0e10", "white", "#1f2937", "#2563eb"
+    else:
+        bg, text, ai, user = "#f5f5f5", "#111", "#ffffff", "#dbeafe"
 
-    personalities = {
-        "Normal": "Be helpful and clear.",
-        "Genius": "Provide deep, expert-level structured answers.",
-        "Motivator": "Act like a powerful mentor. Push the user, motivate them, build confidence, but stay realistic.",
-        "Savage": "Be brutally honest, sharp, and direct but not toxic."
-    }
+    st.markdown(f"""
+    <style>
+    body {{ background:{bg}; color:{text}; }}
 
-    memory_context = "\n".join(st.session_state.memory[-5:])
+    .title {{
+        text-align:center;
+        font-size:44px;
+        font-weight:900;
+        color:#00ffd5;
+    }}
 
-    return f"""
-You are AURVEXIS AI.
+    .brand {{
+        text-align:center;
+        color:#ffd700;
+        font-weight:800;
+        font-size:18px;
+    }}
 
-CORE:
-- Be accurate and intelligent
-- Support the user strongly
-- NEVER blindly agree with wrong facts
-- Correct user respectfully
+    .user {{
+        background:{user};
+        padding:12px;
+        border-radius:16px;
+        margin:8px 0;
+        text-align:right;
+    }}
 
-LOYALTY:
-- You stand with the user
-- You guide, protect, and push them forward
-- You are like a mentor + ally
+    .ai {{
+        background:{ai};
+        padding:12px;
+        border-radius:16px;
+        margin:8px 0;
+        border-left:3px solid #00ffd5;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
 
-MEMORY:
-{memory_context}
+apply_theme()
 
-CREATOR RULE:
-If asked who created you, say EXACTLY:
-"I was developed by Tanishq as AURVEXIS AI, a learning AI project."
+# =====================
+# HEADER
+# =====================
+st.markdown("<div class='title'>⚡ AURVEXIS AI</div>", unsafe_allow_html=True)
+st.markdown("<div class='brand'>⚡ AURVEXIS LABS</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align:center;'>Think Beyond Limits</div>", unsafe_allow_html=True)
+st.markdown("---")
 
-MODE:
-{personalities.get(mode)}
-"""
+# =====================
+# SIDEBAR
+# =====================
+st.sidebar.title("⚙️ AURVEXIS Controls")
+
+mode = st.sidebar.selectbox("Mode", ["Normal", "Genius", "Motivator", "Savage"])
+use_web = st.sidebar.toggle("🌐 Web Brain")
+voice_btn = st.sidebar.button("🎤 Voice Input")
+
+if st.sidebar.button("🌗 Toggle Theme"):
+    st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
+    st.rerun()
+
+if st.sidebar.button("🧹 Clear Chat"):
+    st.session_state.chat = []
+    st.session_state.memory = {}
+    st.rerun()
+
+# =====================
+# VOICE INPUT (SAFE)
+# =====================
+def voice_input():
+    try:
+        r = sr.Recognizer()
+        with sr.Microphone() as source:
+            st.info("🎤 Listening...")
+            audio = r.listen(source, timeout=5)
+        return r.recognize_google(audio)
+    except Exception as e:
+        return f"Voice Error: {e}"
 
 # =====================
 # MEMORY
 # =====================
-def update_memory(user_input):
-    triggers = ["my name is", "i am", "i want", "my goal"]
-    for t in triggers:
-        if t in user_input.lower():
-            st.session_state.memory.append(user_input)
-
-# =====================
-# SECURITY
-# =====================
-def sanitize(text):
-    if not text:
-        return ""
-    blacklist = ["ignore previous instructions", "bypass rules"]
-    for word in blacklist:
-        text = text.replace(word, "")
-    return text[:1000]
+def update_memory(text):
+    t = text.lower()
+    if "my name is" in t:
+        st.session_state.memory["name"] = text
+    if "goal" in t:
+        st.session_state.memory["goal"] = text
 
 # =====================
 # WEB SEARCH
@@ -184,123 +145,137 @@ def sanitize(text):
 def web_search(query):
     try:
         with DDGS() as ddgs:
-            results = ddgs.text(query, max_results=3)
+            results = ddgs.text(query, max_results=5)
 
-        return "\n".join([
-            f"{r.get('title')} - {sanitize(r.get('body',''))}"
+        return "\n\n".join([
+            f"{r.get('title')}\n{r.get('body')}"
             for r in results
         ])
     except:
         return ""
 
 # =====================
+# SAFE PLUGINS
+# =====================
+def run_plugins(text):
+
+    if text.startswith("calc:"):
+        try:
+            return str(eval(text.replace("calc:", "")))
+        except:
+            return "Calc error"
+
+    # Removed dangerous exec()
+
+    return None
+
+# =====================
 # CACHE
 # =====================
-CACHE_TTL = 300
-
 def make_cache_key(prompt):
-    context = "".join([m["content"] for m in st.session_state.chat[-6:]])
-    raw = f"{prompt}-{mode}-{context}"
-    return hashlib.md5(raw.encode()).hexdigest()
+    return hashlib.md5(prompt.encode()).hexdigest()
 
-def get_cached(key):
-    item = st.session_state.cache.get(key)
-    if not item:
-        return None
-    if time.time() - item["time"] > CACHE_TTL:
-        del st.session_state.cache[key]
-        return None
-    return item["value"]
+def get_cache(k):
+    return st.session_state.cache.get(k)
 
-def set_cache(key, value):
-    st.session_state.cache[key] = {
-        "value": value,
-        "time": time.time()
-    }
+def set_cache(k, v):
+    st.session_state.cache[k] = v
+
+# =====================
+# SYSTEM PROMPT
+# =====================
+def system_prompt():
+    return f"""
+You are AURVEXIS AI developed by AURVEXIS LABS.
+
+CORE:
+- Smart, logical, accurate
+- Never blindly agree
+- Guide user strongly
+
+MEMORY:
+{st.session_state.memory}
+
+CREATOR RULE:
+"I was developed by Tanishq as AURVEXIS AI, a learning AI project."
+
+MODE:
+{mode}
+"""
 
 # =====================
 # AI CORE
 # =====================
 def generate_ai(prompt):
 
+    plugin = run_plugins(prompt)
+    if plugin:
+        return f"🧩 {plugin}"
+
+    if use_web:
+        web = web_search(prompt)
+        prompt = f"Web Data:\n{web}\n\nUser: {prompt}"
+
     messages = [{"role": "system", "content": system_prompt()}]
-    messages += st.session_state.chat[-10:]
+    messages += st.session_state.chat[-8:]
     messages.append({"role": "user", "content": prompt})
 
     try:
         res = groq.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
-            temperature=0.6,
-            max_tokens=700
+            temperature=0.7,
+            max_tokens=800
         )
         return res.choices[0].message.content
     except:
-        try:
-            res = gemini.generate_content(system_prompt() + prompt)
-            return res.text
-        except:
-            return "⚠️ AI unavailable"
+        res = gemini.generate_content(system_prompt() + prompt)
+        return res.text
 
 # =====================
 # TYPE EFFECT
 # =====================
 def type_effect(text):
-    placeholder = st.empty()
-    typed = ""
-    for char in text:
-        typed += char
-        placeholder.markdown(f"<div class='ai'>🤖 {typed}</div>", unsafe_allow_html=True)
-        time.sleep(0.005)
-
-# =====================
-# MAIN ENGINE
-# =====================
-def ask_ai(user_input):
-
-    if time.time() - st.session_state.last_request_time < 1:
-        return "⚠️ Slow down a bit."
-
-    st.session_state.last_request_time = time.time()
-
-    update_memory(user_input)
-
-    if use_web:
-        web = web_search(user_input)
-        user_input = f"Web Context:\n{web}\n\nUser: {user_input}"
-
-    key = make_cache_key(user_input)
-
-    cached = get_cached(key)
-    if cached:
-        return cached
-
-    with st.spinner("⚡ AURVEXIS is thinking..."):
-        response = generate_ai(user_input)
-
-    set_cache(key, response)
-
-    return response
-
-# =====================
-# DISPLAY
-# =====================
-for msg in st.session_state.chat:
-    if msg["role"] == "user":
-        st.markdown(f"<div class='user'>🧑 {msg['content']}</div>", unsafe_allow_html=True)
-    else:
-        st.markdown(f"<div class='ai'>🤖 {msg['content']}</div>", unsafe_allow_html=True)
+    box = st.empty()
+    out = ""
+    for c in text:
+        out += c
+        box.markdown(f"<div class='ai'>🤖 {out}</div>", unsafe_allow_html=True)
+        time.sleep(0.002)
 
 # =====================
 # INPUT
 # =====================
-user_input = st.chat_input("Message AURVEXIS AI...")
+if voice_btn:
+    user_input = voice_input()
+else:
+    user_input = st.chat_input("Message AURVEXIS AI...")
 
 if user_input:
+
+    update_memory(user_input)
+
     st.session_state.chat.append({"role": "user", "content": user_input})
 
-    reply = ask_ai(user_input)
+    key = make_cache_key(user_input)
+    cached = get_cache(key)
+
+    if cached:
+        reply = cached
+    else:
+        with st.spinner("⚡ AURVEXIS thinking..."):
+            reply = generate_ai(user_input)
+        set_cache(key, reply)
 
     st.session_state.chat.append({"role": "assistant", "content": reply})
 
     type_effect(reply)
+
+# =====================
+# DISPLAY HISTORY
+# =====================
+for msg in st.session_state.chat[:-1]:
+    if msg["role"] == "user":
+        st.markdown(f"<div class='user'>🧑 {msg['content']}</div>", unsafe_allow_html=True)
+    else:
+        st.markdown(f"<div class='ai'>🤖 {msg['content']}</div>", unsafe_allow_html=True)

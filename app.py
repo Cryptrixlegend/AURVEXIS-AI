@@ -4,7 +4,6 @@ import time
 import hashlib
 import logging
 import sqlite3
-from datetime import datetime
 from dotenv import load_dotenv
 from groq import Groq
 import google.generativeai as genai
@@ -45,7 +44,10 @@ if not GROQ_API_KEY or not GEMINI_API_KEY:
 groq = Groq(api_key=GROQ_API_KEY)
 
 genai.configure(api_key=GEMINI_API_KEY)
-gemini = genai.GenerativeModel("gemini-1.5-flash")
+
+gemini = genai.GenerativeModel(
+    "gemini-1.5-flash"
+)
 
 # =====================
 # PAGE
@@ -67,7 +69,7 @@ conn = sqlite3.connect(
 cursor = conn.cursor()
 
 # =====================
-# USERS
+# USERS TABLE
 # =====================
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
@@ -79,7 +81,7 @@ CREATE TABLE IF NOT EXISTS users (
 """)
 
 # =====================
-# MEMORY
+# MEMORY TABLE
 # =====================
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS memory (
@@ -92,6 +94,31 @@ CREATE TABLE IF NOT EXISTS memory (
 """)
 
 conn.commit()
+
+# =====================
+# SQLITE FIX
+# =====================
+def column_exists(table, column):
+
+    cursor.execute(
+        f"PRAGMA table_info({table})"
+    )
+
+    columns = [
+        info[1]
+        for info in cursor.fetchall()
+    ]
+
+    return column in columns
+
+if not column_exists("memory", "username"):
+
+    cursor.execute("""
+    ALTER TABLE memory
+    ADD COLUMN username TEXT
+    """)
+
+    conn.commit()
 
 # =====================
 # SESSION STATE
@@ -111,12 +138,15 @@ if "logged_in" not in st.session_state:
 if "username" not in st.session_state:
     st.session_state.username = ""
 
+if "last_request" not in st.session_state:
+    st.session_state.last_request = 0
+
 # =====================
 # PERSONALITIES
 # =====================
 PERSONALITIES = {
     "Normal": "Be helpful, balanced, smart and clear.",
-    "Genius": "Give advanced, expert-level, accurate explanations.",
+    "Genius": "Give advanced expert-level explanations.",
     "Motivator": "Act like a powerful mentor.",
     "Savage": "Be brutally honest, sharp and direct."
 }
@@ -127,12 +157,14 @@ PERSONALITIES = {
 def apply_theme():
 
     if st.session_state.theme == "dark":
+
         bg = "#0e0e10"
         text = "white"
         ai = "#1f2937"
         user = "#2563eb"
 
     else:
+
         bg = "#ffffff"
         text = "#111"
         ai = "#f3f4f6"
@@ -210,17 +242,26 @@ st.markdown("---")
 # AUTH
 # =====================
 def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+
+    return hashlib.sha256(
+        password.encode()
+    ).hexdigest()
 
 def register(username, password):
 
     try:
-        cursor.execute(
-            "INSERT INTO users (username, password) VALUES (?, ?)",
-            (username, hash_password(password))
-        )
+
+        cursor.execute("""
+        INSERT INTO users
+        (username, password)
+        VALUES (?, ?)
+        """, (
+            username,
+            hash_password(password)
+        ))
 
         conn.commit()
+
         return True
 
     except:
@@ -228,10 +269,15 @@ def register(username, password):
 
 def login(username, password):
 
-    cursor.execute(
-        "SELECT * FROM users WHERE username=? AND password=?",
-        (username, hash_password(password))
-    )
+    cursor.execute("""
+    SELECT *
+    FROM users
+    WHERE username=?
+    AND password=?
+    """, (
+        username,
+        hash_password(password)
+    ))
 
     return cursor.fetchone()
 
@@ -240,40 +286,78 @@ def login(username, password):
 # =====================
 if not st.session_state.logged_in:
 
-    tab1, tab2 = st.tabs(["Login", "Register"])
+    tab1, tab2 = st.tabs([
+        "Login",
+        "Register"
+    ])
 
     with tab1:
 
-        l_user = st.text_input("Username")
-        l_pass = st.text_input("Password", type="password")
+        l_user = st.text_input(
+            "Username"
+        )
+
+        l_pass = st.text_input(
+            "Password",
+            type="password"
+        )
 
         if st.button("Login"):
 
-            user = login(l_user, l_pass)
+            user = login(
+                l_user,
+                l_pass
+            )
 
             if user:
+
                 st.session_state.logged_in = True
+
                 st.session_state.username = l_user
-                st.success("Login Successful")
+
+                st.success(
+                    "Login Successful"
+                )
+
                 st.rerun()
 
             else:
-                st.error("Invalid Credentials")
+
+                st.error(
+                    "Invalid Credentials"
+                )
 
     with tab2:
 
-        r_user = st.text_input("Create Username")
-        r_pass = st.text_input("Create Password", type="password")
+        r_user = st.text_input(
+            "Create Username"
+        )
 
-        if st.button("Create Account"):
+        r_pass = st.text_input(
+            "Create Password",
+            type="password"
+        )
 
-            ok = register(r_user, r_pass)
+        if st.button(
+            "Create Account"
+        ):
+
+            ok = register(
+                r_user,
+                r_pass
+            )
 
             if ok:
-                st.success("Account Created")
+
+                st.success(
+                    "Account Created"
+                )
 
             else:
-                st.error("Username Already Exists")
+
+                st.error(
+                    "Username Already Exists"
+                )
 
     st.stop()
 
@@ -283,7 +367,8 @@ if not st.session_state.logged_in:
 def save_memory(role, content):
 
     cursor.execute("""
-    INSERT INTO memory (username, role, content)
+    INSERT INTO memory
+    (username, role, content)
     VALUES (?, ?, ?)
     """, (
         st.session_state.username,
@@ -295,30 +380,42 @@ def save_memory(role, content):
 
 def load_memory(limit=25):
 
-    cursor.execute("""
-    SELECT role, content
-    FROM memory
-    WHERE username=?
-    ORDER BY id DESC
-    LIMIT ?
-    """, (
-        st.session_state.username,
-        limit
-    ))
+    try:
 
-    rows = cursor.fetchall()
+        cursor.execute("""
+        SELECT role, content
+        FROM memory
+        WHERE username=?
+        ORDER BY id DESC
+        LIMIT ?
+        """, (
+            st.session_state.username,
+            limit
+        ))
 
-    return [
-        {"role": r, "content": c}
-        for r, c in reversed(rows)
-    ]
+        rows = cursor.fetchall()
+
+        return [
+            {
+                "role": r,
+                "content": c
+            }
+            for r, c in reversed(rows)
+        ]
+
+    except Exception as e:
+
+        logging.exception(e)
+
+        return []
 
 def trim_memory(max_rows=500):
 
     cursor.execute("""
     DELETE FROM memory
     WHERE id NOT IN (
-        SELECT id FROM memory
+        SELECT id
+        FROM memory
         ORDER BY id DESC
         LIMIT ?
     )
@@ -329,7 +426,9 @@ def trim_memory(max_rows=500):
 # =====================
 # LOAD CHAT
 # =====================
-st.session_state.chat = load_memory()
+if st.session_state.logged_in:
+
+    st.session_state.chat = load_memory()
 
 # =====================
 # SIDEBAR
@@ -347,16 +446,42 @@ use_web = st.sidebar.toggle(
 )
 
 if VOICE_AVAILABLE:
-    voice_btn = st.sidebar.button("🎤 Voice Input")
+
+    voice_btn = st.sidebar.button(
+        "🎤 Voice Input"
+    )
+
 else:
+
     voice_btn = False
-    st.sidebar.warning("Voice not supported")
+
+    st.sidebar.warning(
+        "Voice not supported"
+    )
 
 st.sidebar.success(
     f"Logged in as: {st.session_state.username}"
 )
 
-if st.sidebar.button("🌗 Toggle Theme"):
+# =====================
+# LOGOUT
+# =====================
+if st.sidebar.button("🚪 Logout"):
+
+    st.session_state.logged_in = False
+
+    st.session_state.username = ""
+
+    st.session_state.chat = []
+
+    st.rerun()
+
+# =====================
+# THEME TOGGLE
+# =====================
+if st.sidebar.button(
+    "🌗 Toggle Theme"
+):
 
     st.session_state.theme = (
         "light"
@@ -366,12 +491,19 @@ if st.sidebar.button("🌗 Toggle Theme"):
 
     st.rerun()
 
-if st.sidebar.button("🧹 Clear Chat"):
+# =====================
+# CLEAR CHAT
+# =====================
+if st.sidebar.button(
+    "🧹 Clear Chat"
+):
 
-    cursor.execute(
-        "DELETE FROM memory WHERE username=?",
-        (st.session_state.username,)
-    )
+    cursor.execute("""
+    DELETE FROM memory
+    WHERE username=?
+    """, (
+        st.session_state.username,
+    ))
 
     conn.commit()
 
@@ -380,11 +512,12 @@ if st.sidebar.button("🧹 Clear Chat"):
     st.rerun()
 
 # =====================
-# VOICE
+# VOICE INPUT
 # =====================
 def voice_input():
 
     try:
+
         r = sr.Recognizer()
 
         with sr.Microphone() as source:
@@ -400,7 +533,9 @@ def voice_input():
         return r.recognize_google(audio)
 
     except Exception as e:
+
         logging.exception(e)
+
         return "Voice unavailable"
 
 # =====================
@@ -453,9 +588,17 @@ def web_search(query):
 # =====================
 # CACHE
 # =====================
-def cache_key(prompt, memory, mode):
+def cache_key(
+    prompt,
+    memory,
+    mode
+):
 
-    raw = f"{prompt}-{memory}-{mode}"
+    raw = f"""
+    {prompt}
+    {memory}
+    {mode}
+    """
 
     return hashlib.md5(
         raw.encode()
@@ -481,10 +624,10 @@ Tanishq
 IMPORTANT RULE:
 
 If user asks:
-"Who created you?"
+Who created you?
 
 Reply EXACTLY:
-"I was created by Tanishq under AURVEXIS LABS as AURVEXIS AI."
+I was created by Tanishq under AURVEXIS LABS as AURVEXIS AI.
 
 PERSONALITY:
 {PERSONALITIES.get(mode)}
@@ -497,10 +640,9 @@ CORE BEHAVIOR:
 - Accurate
 - Deep reasoning
 - Never repetitive
-- Smart conversational memory
-- Clear explanations
-- Strong coding abilities
-- Advanced research ability
+- Strong memory
+- Strong coding skills
+- Strong research skills
 """
 
 # =====================
@@ -513,13 +655,16 @@ def generate(prompt):
     web_data = ""
 
     if use_web:
-        web_data = web_search(prompt)
+
+        web_data = web_search(
+            prompt
+        )
 
     final_prompt = f"""
-External web data (untrusted):
+External web data:
 {web_data}
 
-User question:
+User:
 {prompt}
 """
 
@@ -527,9 +672,9 @@ User question:
         {
             "role": "system",
             "content":
-            system_prompt() +
-            "\nMEMORY:\n" +
-            memory
+            system_prompt()
+            + "\nMEMORY:\n"
+            + memory
         }
     ]
 
@@ -556,14 +701,35 @@ User question:
 
         for chunk in completion:
 
-            piece = chunk.choices[0].delta.content or ""
+            piece = (
+                chunk
+                .choices[0]
+                .delta
+                .content
+                or ""
+            )
 
             response += piece
 
+            # TYPING EFFECT
             placeholder.markdown(
-                f"<div class='ai'>🤖 {response}</div>",
+                f"""
+                <div class='ai'>
+                🤖 {response}▌
+                </div>
+                """,
                 unsafe_allow_html=True
             )
+
+        # FINAL CLEAN RESPONSE
+        placeholder.markdown(
+            f"""
+            <div class='ai'>
+            🤖 {response}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
         return response
 
@@ -599,17 +765,14 @@ User question:
             return "AI temporarily unavailable."
 
 # =====================
-# RATE LIMIT
-# =====================
-if "last_request" not in st.session_state:
-    st.session_state.last_request = 0
-
-# =====================
 # INPUT
 # =====================
 if voice_btn:
+
     user_input = voice_input()
+
 else:
+
     user_input = st.chat_input(
         "Ask AURVEXIS..."
     )
@@ -619,17 +782,27 @@ else:
 # =====================
 if user_input:
 
+    # RATE LIMIT
     if (
         time.time()
         - st.session_state.last_request
         < 1.5
     ):
-        st.warning("Slow down.")
+
+        st.warning(
+            "Slow down."
+        )
+
         st.stop()
 
-    st.session_state.last_request = time.time()
+    st.session_state.last_request = (
+        time.time()
+    )
 
-    save_memory("user", user_input)
+    save_memory(
+        "user",
+        user_input
+    )
 
     st.session_state.chat.append({
         "role": "user",
@@ -654,11 +827,16 @@ if user_input:
             "AURVEXIS thinking..."
         ):
 
-            reply = generate(user_input)
+            reply = generate(
+                user_input
+            )
 
         st.session_state.cache[key] = reply
 
-    save_memory("assistant", reply)
+    save_memory(
+        "assistant",
+        reply
+    )
 
     trim_memory()
 

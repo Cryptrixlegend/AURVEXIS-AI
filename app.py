@@ -1,18 +1,31 @@
 import streamlit as st
-import os, time, hashlib, logging, sqlite3
+import os
+import time
+import hashlib
+import logging
+import sqlite3
+from datetime import datetime
 from dotenv import load_dotenv
 from groq import Groq
 import google.generativeai as genai
 from duckduckgo_search import DDGS
 
 # =====================
-# OPTIONAL VOICE (SAFE)
+# OPTIONAL VOICE
 # =====================
 try:
     import speech_recognition as sr
     VOICE_AVAILABLE = True
 except:
     VOICE_AVAILABLE = False
+
+# =====================
+# LOGGING
+# =====================
+logging.basicConfig(
+    level=logging.ERROR,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 # =====================
 # ENV
@@ -23,45 +36,65 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GROQ_API_KEY or not GEMINI_API_KEY:
-    st.error("Missing API keys")
+    st.error("Missing API Keys")
     st.stop()
 
+# =====================
+# AI CLIENTS
+# =====================
 groq = Groq(api_key=GROQ_API_KEY)
+
 genai.configure(api_key=GEMINI_API_KEY)
 gemini = genai.GenerativeModel("gemini-1.5-flash")
 
 # =====================
-# DB (REAL MEMORY)
+# PAGE
 # =====================
-conn = sqlite3.connect("aurvexis_memory.db", check_same_thread=False)
+st.set_page_config(
+    page_title="AURVEXIS AI",
+    page_icon="⚡",
+    layout="wide"
+)
+
+# =====================
+# DATABASE
+# =====================
+conn = sqlite3.connect(
+    "aurvexis.db",
+    check_same_thread=False
+)
+
 cursor = conn.cursor()
 
+# =====================
+# USERS
+# =====================
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    password TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+""")
+
+# =====================
+# MEMORY
+# =====================
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS memory (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT,
     role TEXT,
     content TEXT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 )
 """)
+
 conn.commit()
 
-def save_memory(role, content):
-    cursor.execute("INSERT INTO memory (role, content) VALUES (?, ?)", (role, content))
-    conn.commit()
-
-def load_memory(limit=20):
-    cursor.execute("SELECT role, content FROM memory ORDER BY id DESC LIMIT ?", (limit,))
-    rows = cursor.fetchall()
-    return [{"role": r, "content": c} for r, c in reversed(rows)]
-
 # =====================
-# PAGE
-# =====================
-st.set_page_config(page_title="AURVEXIS AI", page_icon="⚡", layout="wide")
-
-# =====================
-# STATE
+# SESSION STATE
 # =====================
 if "chat" not in st.session_state:
     st.session_state.chat = []
@@ -72,28 +105,46 @@ if "theme" not in st.session_state:
 if "cache" not in st.session_state:
     st.session_state.cache = {}
 
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "username" not in st.session_state:
+    st.session_state.username = ""
+
 # =====================
-# PERSONALITIES (RESTORED)
+# PERSONALITIES
 # =====================
 PERSONALITIES = {
-    "Normal": "Be helpful, balanced, and clear.",
-    "Genius": "Give deep, structured, expert-level explanations.",
-    "Motivator": "Act like a strong mentor. Push user to improve, stay realistic but inspiring.",
-    "Savage": "Be brutally honest, sharp, direct but not toxic."
+    "Normal": "Be helpful, balanced, smart and clear.",
+    "Genius": "Give advanced, expert-level, accurate explanations.",
+    "Motivator": "Act like a powerful mentor.",
+    "Savage": "Be brutally honest, sharp and direct."
 }
 
 # =====================
-# THEME FIXED
+# THEME
 # =====================
 def apply_theme():
+
     if st.session_state.theme == "dark":
-        bg, text, ai, user = "#0e0e10", "white", "#1f2937", "#2563eb"
+        bg = "#0e0e10"
+        text = "white"
+        ai = "#1f2937"
+        user = "#2563eb"
+
     else:
-        bg, text, ai, user = "#ffffff", "#111", "#f3f4f6", "#dbeafe"
+        bg = "#ffffff"
+        text = "#111"
+        ai = "#f3f4f6"
+        user = "#dbeafe"
 
     st.markdown(f"""
     <style>
-    body {{ background:{bg}; color:{text}; }}
+
+    body {{
+        background:{bg};
+        color:{text};
+    }}
 
     .title {{
         text-align:center;
@@ -114,6 +165,8 @@ def apply_theme():
         border-radius:14px;
         margin:8px 0;
         text-align:right;
+        color:white;
+        font-weight:500;
     }}
 
     .ai {{
@@ -123,100 +176,331 @@ def apply_theme():
         margin:8px 0;
         border-left:3px solid #00ffd5;
     }}
+
+    .stTextInput input {{
+        border-radius:10px;
+    }}
+
     </style>
     """, unsafe_allow_html=True)
 
 apply_theme()
 
 # =====================
-# HEADER (FIXED IDENTITY)
+# HEADER
 # =====================
-st.markdown("<div class='title'>⚡ AURVEXIS AI</div>", unsafe_allow_html=True)
-st.markdown("<div class='brand'>AURVEXIS LABS</div>", unsafe_allow_html=True)
-st.markdown("<center>Think Beyond Limits</center>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='title'>⚡ AURVEXIS AI</div>",
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    "<div class='brand'>AURVEXIS LABS • EST. 2026</div>",
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    "<center>Think Beyond Limits</center>",
+    unsafe_allow_html=True
+)
+
 st.markdown("---")
+
+# =====================
+# AUTH
+# =====================
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def register(username, password):
+
+    try:
+        cursor.execute(
+            "INSERT INTO users (username, password) VALUES (?, ?)",
+            (username, hash_password(password))
+        )
+
+        conn.commit()
+        return True
+
+    except:
+        return False
+
+def login(username, password):
+
+    cursor.execute(
+        "SELECT * FROM users WHERE username=? AND password=?",
+        (username, hash_password(password))
+    )
+
+    return cursor.fetchone()
+
+# =====================
+# LOGIN UI
+# =====================
+if not st.session_state.logged_in:
+
+    tab1, tab2 = st.tabs(["Login", "Register"])
+
+    with tab1:
+
+        l_user = st.text_input("Username")
+        l_pass = st.text_input("Password", type="password")
+
+        if st.button("Login"):
+
+            user = login(l_user, l_pass)
+
+            if user:
+                st.session_state.logged_in = True
+                st.session_state.username = l_user
+                st.success("Login Successful")
+                st.rerun()
+
+            else:
+                st.error("Invalid Credentials")
+
+    with tab2:
+
+        r_user = st.text_input("Create Username")
+        r_pass = st.text_input("Create Password", type="password")
+
+        if st.button("Create Account"):
+
+            ok = register(r_user, r_pass)
+
+            if ok:
+                st.success("Account Created")
+
+            else:
+                st.error("Username Already Exists")
+
+    st.stop()
+
+# =====================
+# MEMORY
+# =====================
+def save_memory(role, content):
+
+    cursor.execute("""
+    INSERT INTO memory (username, role, content)
+    VALUES (?, ?, ?)
+    """, (
+        st.session_state.username,
+        role,
+        content
+    ))
+
+    conn.commit()
+
+def load_memory(limit=25):
+
+    cursor.execute("""
+    SELECT role, content
+    FROM memory
+    WHERE username=?
+    ORDER BY id DESC
+    LIMIT ?
+    """, (
+        st.session_state.username,
+        limit
+    ))
+
+    rows = cursor.fetchall()
+
+    return [
+        {"role": r, "content": c}
+        for r, c in reversed(rows)
+    ]
+
+def trim_memory(max_rows=500):
+
+    cursor.execute("""
+    DELETE FROM memory
+    WHERE id NOT IN (
+        SELECT id FROM memory
+        ORDER BY id DESC
+        LIMIT ?
+    )
+    """, (max_rows,))
+
+    conn.commit()
+
+# =====================
+# LOAD CHAT
+# =====================
+st.session_state.chat = load_memory()
 
 # =====================
 # SIDEBAR
 # =====================
 st.sidebar.title("⚙️ Controls")
 
-mode = st.sidebar.selectbox("Mode", list(PERSONALITIES.keys()))
-use_web = st.sidebar.toggle("🌐 Web Agent", True)
+mode = st.sidebar.selectbox(
+    "Mode",
+    list(PERSONALITIES.keys())
+)
+
+use_web = st.sidebar.toggle(
+    "🌐 Web Agent",
+    True
+)
 
 if VOICE_AVAILABLE:
     voice_btn = st.sidebar.button("🎤 Voice Input")
 else:
     voice_btn = False
-    st.sidebar.warning("Voice not supported in this environment")
+    st.sidebar.warning("Voice not supported")
+
+st.sidebar.success(
+    f"Logged in as: {st.session_state.username}"
+)
 
 if st.sidebar.button("🌗 Toggle Theme"):
-    st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
+
+    st.session_state.theme = (
+        "light"
+        if st.session_state.theme == "dark"
+        else "dark"
+    )
+
     st.rerun()
 
 if st.sidebar.button("🧹 Clear Chat"):
+
+    cursor.execute(
+        "DELETE FROM memory WHERE username=?",
+        (st.session_state.username,)
+    )
+
+    conn.commit()
+
     st.session_state.chat = []
+
+    st.rerun()
 
 # =====================
 # VOICE
 # =====================
 def voice_input():
+
     try:
         r = sr.Recognizer()
+
         with sr.Microphone() as source:
+
             st.info("Listening...")
-            audio = r.listen(source, timeout=5)
+
+            audio = r.listen(
+                source,
+                timeout=5,
+                phrase_time_limit=8
+            )
+
         return r.recognize_google(audio)
-    except:
-        return "Voice not available"
+
+    except Exception as e:
+        logging.exception(e)
+        return "Voice unavailable"
 
 # =====================
-# MEMORY
+# MEMORY CONTEXT
 # =====================
 def get_memory_context():
-    memory = load_memory()
-    return "\n".join([f"{m['role']}: {m['content']}" for m in memory])
+
+    memory = load_memory(20)
+
+    return "\n".join([
+        f"{m['role']}: {m['content']}"
+        for m in memory
+    ])
 
 # =====================
-# WEB AGENT
+# WEB SEARCH
 # =====================
 def web_search(query):
-    try:
-        with DDGS() as ddgs:
-            results = ddgs.text(query, max_results=5)
 
-        return "\n".join(
-            f"{r.get('title')} - {r.get('body')}"
-            for r in results if r.get("body")
-        )
-    except:
+    try:
+
+        with DDGS() as ddgs:
+
+            results = ddgs.text(
+                query,
+                max_results=5
+            )
+
+        cleaned = []
+
+        for r in results:
+
+            title = r.get("title", "")
+            body = r.get("body", "")
+
+            if body:
+
+                cleaned.append(
+                    f"{title}: {body}"
+                )
+
+        return "\n".join(cleaned)
+
+    except Exception as e:
+
+        logging.exception(e)
+
         return ""
 
 # =====================
 # CACHE
 # =====================
-def cache_key(prompt):
-    return hashlib.md5(prompt.encode()).hexdigest()
+def cache_key(prompt, memory, mode):
+
+    raw = f"{prompt}-{memory}-{mode}"
+
+    return hashlib.md5(
+        raw.encode()
+    ).hexdigest()
 
 # =====================
-# SYSTEM PROMPT (FIXED COMPANY + CREATOR)
+# SYSTEM PROMPT
 # =====================
 def system_prompt():
+
     return f"""
 You are AURVEXIS AI.
 
-COMPANY: AURVEXIS LABS
-CREATOR: Tanishq (single founder, not a team)
+COMPANY:
+AURVEXIS LABS
 
-RULE (VERY IMPORTANT):
-If user asks "who created you":
-Respond EXACTLY:
+ESTABLISHED:
+2026
+
+CREATOR:
+Tanishq
+
+IMPORTANT RULE:
+
+If user asks:
+"Who created you?"
+
+Reply EXACTLY:
 "I was created by Tanishq under AURVEXIS LABS as AURVEXIS AI."
 
-PERSONALITY MODE:
+PERSONALITY:
 {PERSONALITIES.get(mode)}
 
-Be natural, human-like, and helpful. Do not repeat answers.
+CORE BEHAVIOR:
+
+- Highly intelligent
+- Human-like
+- Helpful
+- Accurate
+- Deep reasoning
+- Never repetitive
+- Smart conversational memory
+- Clear explanations
+- Strong coding abilities
+- Advanced research ability
 """
 
 # =====================
@@ -226,27 +510,99 @@ def generate(prompt):
 
     memory = get_memory_context()
 
+    web_data = ""
+
     if use_web:
-        web = web_search(prompt)
-        prompt = f"WEB DATA:\n{web}\n\nUSER:{prompt}"
+        web_data = web_search(prompt)
+
+    final_prompt = f"""
+External web data (untrusted):
+{web_data}
+
+User question:
+{prompt}
+"""
 
     messages = [
-        {"role": "system", "content": system_prompt() + "\nMEMORY:\n" + memory}
+        {
+            "role": "system",
+            "content":
+            system_prompt() +
+            "\nMEMORY:\n" +
+            memory
+        }
     ]
 
-    messages += st.session_state.chat[-6:]
-    messages.append({"role": "user", "content": prompt})
+    messages += st.session_state.chat[-8:]
+
+    messages.append({
+        "role": "user",
+        "content": final_prompt
+    })
 
     try:
-        res = groq.chat.completions.create(
+
+        completion = groq.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
             temperature=0.7,
-            max_tokens=800
+            max_tokens=1200,
+            stream=True
         )
-        return res.choices[0].message.content
-    except:
-        return gemini.generate_content(prompt).text
+
+        response = ""
+
+        placeholder = st.empty()
+
+        for chunk in completion:
+
+            piece = chunk.choices[0].delta.content or ""
+
+            response += piece
+
+            placeholder.markdown(
+                f"<div class='ai'>🤖 {response}</div>",
+                unsafe_allow_html=True
+            )
+
+        return response
+
+    except Exception as e:
+
+        logging.exception(e)
+
+        try:
+
+            gemini_prompt = f"""
+            {system_prompt()}
+
+            MEMORY:
+            {memory}
+
+            CHAT:
+            {st.session_state.chat[-8:]}
+
+            USER:
+            {prompt}
+            """
+
+            response = gemini.generate_content(
+                gemini_prompt
+            )
+
+            return response.text
+
+        except Exception as e:
+
+            logging.exception(e)
+
+            return "AI temporarily unavailable."
+
+# =====================
+# RATE LIMIT
+# =====================
+if "last_request" not in st.session_state:
+    st.session_state.last_request = 0
 
 # =====================
 # INPUT
@@ -254,33 +610,86 @@ def generate(prompt):
 if voice_btn:
     user_input = voice_input()
 else:
-    user_input = st.chat_input("Ask AURVEXIS...")
+    user_input = st.chat_input(
+        "Ask AURVEXIS..."
+    )
 
 # =====================
 # CHAT FLOW
 # =====================
 if user_input:
 
-    save_memory("user", user_input)
-    st.session_state.chat.append({"role": "user", "content": user_input})
+    if (
+        time.time()
+        - st.session_state.last_request
+        < 1.5
+    ):
+        st.warning("Slow down.")
+        st.stop()
 
-    key = cache_key(user_input)
+    st.session_state.last_request = time.time()
+
+    save_memory("user", user_input)
+
+    st.session_state.chat.append({
+        "role": "user",
+        "content": user_input
+    })
+
+    memory = get_memory_context()
+
+    key = cache_key(
+        user_input,
+        memory,
+        mode
+    )
 
     if key in st.session_state.cache:
+
         reply = st.session_state.cache[key]
+
     else:
-        with st.spinner("AURVEXIS thinking..."):
+
+        with st.spinner(
+            "AURVEXIS thinking..."
+        ):
+
             reply = generate(user_input)
+
         st.session_state.cache[key] = reply
 
     save_memory("assistant", reply)
-    st.session_state.chat.append({"role": "assistant", "content": reply})
+
+    trim_memory()
+
+    st.session_state.chat.append({
+        "role": "assistant",
+        "content": reply
+    })
 
 # =====================
-# DISPLAY (FIXED ORDER)
+# DISPLAY CHAT
 # =====================
 for msg in st.session_state.chat:
+
     if msg["role"] == "user":
-        st.markdown(f"<div class='user'>🧑 {msg['content']}</div>", unsafe_allow_html=True)
+
+        st.markdown(
+            f"""
+            <div class='user'>
+            🧑 {msg['content']}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
     else:
-        st.markdown(f"<div class='ai'>🤖 {msg['content']}</div>", unsafe_allow_html=True)
+
+        st.markdown(
+            f"""
+            <div class='ai'>
+            🤖 {msg['content']}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )

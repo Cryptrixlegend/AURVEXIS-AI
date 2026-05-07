@@ -277,6 +277,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown("""
+<div class='status'>
+⚡ AURVEXIS LABS Quantum Intelligence Core Active • Founded by Tanishq
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("""
 <div class='brand'>
 Founded by Tanishq • AURVEXIS LABS • EST. 2026
 </div>

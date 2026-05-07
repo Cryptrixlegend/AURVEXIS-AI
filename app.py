@@ -9,26 +9,26 @@ from groq import Groq
 import google.generativeai as genai
 from duckduckgo_search import DDGS
 
-# =====================
+# =========================
 # OPTIONAL VOICE
-# =====================
+# =========================
 try:
     import speech_recognition as sr
     VOICE_AVAILABLE = True
 except:
     VOICE_AVAILABLE = False
 
-# =====================
+# =========================
 # LOGGING
-# =====================
+# =========================
 logging.basicConfig(
     level=logging.ERROR,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# =====================
+# =========================
 # ENV
-# =====================
+# =========================
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -38,9 +38,9 @@ if not GROQ_API_KEY or not GEMINI_API_KEY:
     st.error("Missing API Keys")
     st.stop()
 
-# =====================
+# =========================
 # AI CLIENTS
-# =====================
+# =========================
 groq = Groq(api_key=GROQ_API_KEY)
 
 genai.configure(api_key=GEMINI_API_KEY)
@@ -49,18 +49,18 @@ gemini = genai.GenerativeModel(
     "gemini-1.5-flash"
 )
 
-# =====================
+# =========================
 # PAGE
-# =====================
+# =========================
 st.set_page_config(
     page_title="AURVEXIS AI",
     page_icon="⚡",
     layout="wide"
 )
 
-# =====================
+# =========================
 # DATABASE
-# =====================
+# =========================
 conn = sqlite3.connect(
     "aurvexis.db",
     check_same_thread=False
@@ -68,21 +68,22 @@ conn = sqlite3.connect(
 
 cursor = conn.cursor()
 
-# =====================
+# =========================
 # USERS TABLE
-# =====================
+# =========================
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE,
     password TEXT,
+    remember INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )
 """)
 
-# =====================
+# =========================
 # MEMORY TABLE
-# =====================
+# =========================
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS memory (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,34 +96,9 @@ CREATE TABLE IF NOT EXISTS memory (
 
 conn.commit()
 
-# =====================
-# SQLITE FIX
-# =====================
-def column_exists(table, column):
-
-    cursor.execute(
-        f"PRAGMA table_info({table})"
-    )
-
-    columns = [
-        info[1]
-        for info in cursor.fetchall()
-    ]
-
-    return column in columns
-
-if not column_exists("memory", "username"):
-
-    cursor.execute("""
-    ALTER TABLE memory
-    ADD COLUMN username TEXT
-    """)
-
-    conn.commit()
-
-# =====================
-# SESSION STATE
-# =====================
+# =========================
+# SESSION
+# =========================
 if "chat" not in st.session_state:
     st.session_state.chat = []
 
@@ -141,27 +117,27 @@ if "username" not in st.session_state:
 if "last_request" not in st.session_state:
     st.session_state.last_request = 0
 
-# =====================
+# =========================
 # PERSONALITIES
-# =====================
+# =========================
 PERSONALITIES = {
-    "Normal": "Be helpful, balanced, smart and clear.",
-    "Genius": "Give advanced expert-level explanations.",
-    "Motivator": "Act like a powerful mentor.",
-    "Savage": "Be brutally honest, sharp and direct."
+    "Normal": "Be helpful, balanced and smart.",
+    "Genius": "Give advanced expert-level answers.",
+    "Motivator": "Act like a strong mentor.",
+    "Savage": "Be brutally honest and direct."
 }
 
-# =====================
+# =========================
 # THEME
-# =====================
+# =========================
 def apply_theme():
 
     if st.session_state.theme == "dark":
 
-        bg = "#0e0e10"
+        bg = "#0b0f19"
         text = "white"
-        ai = "#1f2937"
-        user = "#2563eb"
+        ai = "rgba(31,41,55,0.75)"
+        user = "linear-gradient(135deg,#2563eb,#00ffd5)"
 
     else:
 
@@ -173,44 +149,117 @@ def apply_theme():
     st.markdown(f"""
     <style>
 
-    body {{
+    html, body, [class*="css"] {{
         background:{bg};
         color:{text};
+        font-family: 'Segoe UI';
+    }}
+
+    .main {{
+        animation: fadeIn 0.5s ease-in;
+    }}
+
+    @keyframes fadeIn {{
+        from {{
+            opacity:0;
+            transform:translateY(10px);
+        }}
+
+        to {{
+            opacity:1;
+            transform:translateY(0px);
+        }}
     }}
 
     .title {{
         text-align:center;
-        font-size:44px;
+        font-size:52px;
         font-weight:900;
-        color:#00ffd5;
+        background: linear-gradient(90deg,#00ffd5,#00a2ff);
+        -webkit-background-clip:text;
+        -webkit-text-fill-color:transparent;
+        animation: glow 2s infinite alternate;
+    }}
+
+    @keyframes glow {{
+        from {{
+            text-shadow:0 0 10px #00ffd5;
+        }}
+
+        to {{
+            text-shadow:0 0 25px #00a2ff;
+        }}
     }}
 
     .brand {{
         text-align:center;
         color:#ffd700;
         font-weight:800;
+        font-size:18px;
+        margin-top:-10px;
+    }}
+
+    .status {{
+        text-align:center;
+        color:#00ff88;
+        margin-bottom:10px;
+        font-size:14px;
+    }}
+
+    .chat-container {{
+        max-width:850px;
+        margin:auto;
     }}
 
     .user {{
         background:{user};
-        padding:12px;
-        border-radius:14px;
-        margin:8px 0;
+        padding:14px;
+        border-radius:18px;
+        margin:10px 0;
         text-align:right;
         color:white;
         font-weight:500;
+        box-shadow:0 0 15px rgba(0,255,213,0.2);
+        animation: fadeIn 0.3s ease-in;
     }}
 
     .ai {{
         background:{ai};
-        padding:12px;
-        border-radius:14px;
-        margin:8px 0;
+        backdrop-filter: blur(12px);
+        padding:14px;
+        border-radius:18px;
+        margin:10px 0;
         border-left:3px solid #00ffd5;
+        box-shadow:0 0 15px rgba(0,255,213,0.1);
+        animation: fadeIn 0.3s ease-in;
+    }}
+
+    section[data-testid="stSidebar"] {{
+        background:rgba(15,23,42,0.85);
+        backdrop-filter: blur(15px);
+        border-right:1px solid rgba(255,255,255,0.08);
+    }}
+
+    .stButton button {{
+        width:100%;
+        border-radius:12px;
+        background:linear-gradient(90deg,#00ffd5,#00a2ff);
+        color:white;
+        border:none;
+        font-weight:700;
+        transition:0.3s;
+    }}
+
+    .stButton button:hover {{
+        transform:scale(1.03);
+        box-shadow:0 0 15px #00ffd5;
     }}
 
     .stTextInput input {{
-        border-radius:10px;
+        border-radius:12px;
+        background:#111827;
+        color:white;
+        border:1px solid rgba(255,255,255,0.1);
     }}
 
     </style>
@@ -218,29 +267,31 @@ def apply_theme():
 
 apply_theme()
 
-# =====================
+# =========================
 # HEADER
-# =====================
-st.markdown(
-    "<div class='title'>⚡ AURVEXIS AI</div>",
-    unsafe_allow_html=True
-)
+# =========================
+st.markdown("""
+<div class='title'>
+⚡ AURVEXIS AI
+</div>
+""", unsafe_allow_html=True)
 
-st.markdown(
-    "<div class='brand'>AURVEXIS LABS • EST. 2026</div>",
-    unsafe_allow_html=True
-)
+st.markdown("""
+<div class='brand'>
+Founded by Tanishq • AURVEXIS LABS • EST. 2026
+</div>
+""", unsafe_allow_html=True)
 
-st.markdown(
-    "<center>Think Beyond Limits</center>",
-    unsafe_allow_html=True
-)
+
+st.markdown("""
+<center><b>Think Beyond Limits</b></center>
+""", unsafe_allow_html=True)
 
 st.markdown("---")
 
-# =====================
+# =========================
 # AUTH
-# =====================
+# =========================
 def hash_password(password):
 
     return hashlib.sha256(
@@ -281,10 +332,22 @@ def login(username, password):
 
     return cursor.fetchone()
 
-# =====================
-# LOGIN UI
-# =====================
+# =========================
+# LOGIN PAGE
+# =========================
 if not st.session_state.logged_in:
+
+    st.markdown("""
+    <div style='
+    max-width:500px;
+    margin:auto;
+    padding:30px;
+    border-radius:20px;
+    background:rgba(255,255,255,0.05);
+    backdrop-filter: blur(12px);
+    box-shadow:0 0 25px rgba(0,255,213,0.15);
+    '>
+    """, unsafe_allow_html=True)
 
     tab1, tab2 = st.tabs([
         "Login",
@@ -302,6 +365,10 @@ if not st.session_state.logged_in:
             type="password"
         )
 
+        remember = st.checkbox(
+            "Stay Logged In"
+        )
+
         if st.button("Login"):
 
             user = login(
@@ -312,8 +379,10 @@ if not st.session_state.logged_in:
             if user:
 
                 st.session_state.logged_in = True
-
                 st.session_state.username = l_user
+
+                if remember:
+                    st.session_state.remember = True
 
                 st.success(
                     "Login Successful"
@@ -359,11 +428,13 @@ if not st.session_state.logged_in:
                     "Username Already Exists"
                 )
 
+    st.markdown("</div>", unsafe_allow_html=True)
+
     st.stop()
 
-# =====================
+# =========================
 # MEMORY
-# =====================
+# =========================
 def save_memory(role, content):
 
     cursor.execute("""
@@ -378,7 +449,7 @@ def save_memory(role, content):
 
     conn.commit()
 
-def load_memory(limit=25):
+def load_memory(limit=50):
 
     try:
 
@@ -409,7 +480,7 @@ def load_memory(limit=25):
 
         return []
 
-def trim_memory(max_rows=500):
+def trim_memory(max_rows=700):
 
     cursor.execute("""
     DELETE FROM memory
@@ -423,25 +494,27 @@ def trim_memory(max_rows=500):
 
     conn.commit()
 
-# =====================
+# =========================
 # LOAD CHAT
-# =====================
+# =========================
 if st.session_state.logged_in:
 
     st.session_state.chat = load_memory()
 
-# =====================
+# =========================
 # SIDEBAR
-# =====================
-st.sidebar.title("⚙️ Controls")
+# =========================
+st.sidebar.markdown("""
+# ⚙️ AURVEXIS CONTROL
+""")
 
 mode = st.sidebar.selectbox(
-    "Mode",
+    "🎭 Personality",
     list(PERSONALITIES.keys())
 )
 
 use_web = st.sidebar.toggle(
-    "🌐 Web Agent",
+    "🌐 Web Search",
     True
 )
 
@@ -455,30 +528,30 @@ else:
 
     voice_btn = False
 
-    st.sidebar.warning(
-        "Voice not supported"
-    )
+st.sidebar.markdown("---")
 
 st.sidebar.success(
-    f"Logged in as: {st.session_state.username}"
+    f"⚡ {st.session_state.username}"
 )
 
-# =====================
+st.sidebar.info(
+    "Founder: Tanishq"
+)
+
+# =========================
 # LOGOUT
-# =====================
+# =========================
 if st.sidebar.button("🚪 Logout"):
 
     st.session_state.logged_in = False
-
     st.session_state.username = ""
-
     st.session_state.chat = []
 
     st.rerun()
 
-# =====================
-# THEME TOGGLE
-# =====================
+# =========================
+# THEME
+# =========================
 if st.sidebar.button(
     "🌗 Toggle Theme"
 ):
@@ -491,9 +564,9 @@ if st.sidebar.button(
 
     st.rerun()
 
-# =====================
+# =========================
 # CLEAR CHAT
-# =====================
+# =========================
 if st.sidebar.button(
     "🧹 Clear Chat"
 ):
@@ -511,9 +584,9 @@ if st.sidebar.button(
 
     st.rerun()
 
-# =====================
-# VOICE INPUT
-# =====================
+# =========================
+# VOICE
+# =========================
 def voice_input():
 
     try:
@@ -538,9 +611,9 @@ def voice_input():
 
         return "Voice unavailable"
 
-# =====================
+# =========================
 # MEMORY CONTEXT
-# =====================
+# =========================
 def get_memory_context():
 
     memory = load_memory(20)
@@ -550,9 +623,9 @@ def get_memory_context():
         for m in memory
     ])
 
-# =====================
+# =========================
 # WEB SEARCH
-# =====================
+# =========================
 def web_search(query):
 
     try:
@@ -585,14 +658,10 @@ def web_search(query):
 
         return ""
 
-# =====================
+# =========================
 # CACHE
-# =====================
-def cache_key(
-    prompt,
-    memory,
-    mode
-):
+# =========================
+def cache_key(prompt, memory, mode):
 
     raw = f"""
     {prompt}
@@ -604,50 +673,43 @@ def cache_key(
         raw.encode()
     ).hexdigest()
 
-# =====================
+# =========================
 # SYSTEM PROMPT
-# =====================
+# =========================
 def system_prompt():
 
     return f"""
 You are AURVEXIS AI.
 
-COMPANY:
-AURVEXIS LABS
-
-ESTABLISHED:
-2026
-
-CREATOR:
+Founder:
 Tanishq
 
-IMPORTANT RULE:
+Company:
+AURVEXIS LABS
 
-If user asks:
-Who created you?
+Established:
+2026
 
-Reply EXACTLY:
-I was created by Tanishq under AURVEXIS LABS as AURVEXIS AI.
+If user asks who created you,
+reply exactly:
 
-PERSONALITY:
+"I was created by Tanishq under AURVEXIS LABS as AURVEXIS AI."
+
+Personality:
 {PERSONALITIES.get(mode)}
 
-CORE BEHAVIOR:
-
-- Highly intelligent
-- Human-like
-- Helpful
-- Accurate
-- Deep reasoning
-- Never repetitive
-- Strong memory
-- Strong coding skills
-- Strong research skills
+Behavior:
+- highly intelligent
+- futuristic
+- deeply helpful
+- advanced coding
+- powerful reasoning
+- strong memory
 """
 
-# =====================
+# =========================
 # AI CORE
-# =====================
+# =========================
 def generate(prompt):
 
     memory = get_memory_context()
@@ -678,7 +740,7 @@ User:
         }
     ]
 
-    messages += st.session_state.chat[-8:]
+    messages += st.session_state.chat[-10:]
 
     messages.append({
         "role": "user",
@@ -691,7 +753,7 @@ User:
             model="llama-3.3-70b-versatile",
             messages=messages,
             temperature=0.7,
-            max_tokens=1200,
+            max_tokens=1500,
             stream=True
         )
 
@@ -711,21 +773,23 @@ User:
 
             response += piece
 
-            # TYPING EFFECT
             placeholder.markdown(
                 f"""
+                <div class='chat-container'>
                 <div class='ai'>
-                🤖 {response}▌
+                ⚡ {response}▌
+                </div>
                 </div>
                 """,
                 unsafe_allow_html=True
             )
 
-        # FINAL CLEAN RESPONSE
         placeholder.markdown(
             f"""
+            <div class='chat-container'>
             <div class='ai'>
-            🤖 {response}
+            ⚡ {response}
+            </div>
             </div>
             """,
             unsafe_allow_html=True
@@ -745,9 +809,6 @@ User:
             MEMORY:
             {memory}
 
-            CHAT:
-            {st.session_state.chat[-8:]}
-
             USER:
             {prompt}
             """
@@ -764,10 +825,10 @@ User:
 
             return "AI temporarily unavailable."
 
-# =====================
+# =========================
 # INPUT
-# =====================
-if voice_btn:
+# =========================
+if VOICE_AVAILABLE and voice_btn:
 
     user_input = voice_input()
 
@@ -777,12 +838,11 @@ else:
         "Ask AURVEXIS..."
     )
 
-# =====================
+# =========================
 # CHAT FLOW
-# =====================
+# =========================
 if user_input:
 
-    # RATE LIMIT
     if (
         time.time()
         - st.session_state.last_request
@@ -824,7 +884,7 @@ if user_input:
     else:
 
         with st.spinner(
-            "AURVEXIS thinking..."
+            "⚡ AURVEXIS thinking..."
         ):
 
             reply = generate(
@@ -845,17 +905,19 @@ if user_input:
         "content": reply
     })
 
-# =====================
+# =========================
 # DISPLAY CHAT
-# =====================
+# =========================
 for msg in st.session_state.chat:
 
     if msg["role"] == "user":
 
         st.markdown(
             f"""
+            <div class='chat-container'>
             <div class='user'>
             🧑 {msg['content']}
+            </div>
             </div>
             """,
             unsafe_allow_html=True
@@ -865,8 +927,10 @@ for msg in st.session_state.chat:
 
         st.markdown(
             f"""
+            <div class='chat-container'>
             <div class='ai'>
-            🤖 {msg['content']}
+            ⚡ {msg['content']}
+            </div>
             </div>
             """,
             unsafe_allow_html=True

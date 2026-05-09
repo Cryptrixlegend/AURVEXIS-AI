@@ -712,19 +712,10 @@ Behavior:
 def generate(prompt):
 
     memory = get_memory_context()
-
     web_data = ""
 
     if use_web:
         web_data = web_search(prompt)
-
-    final_prompt = f"""
-External web data:
-{web_data}
-
-User:
-{prompt}
-"""
 
     messages = [
         {
@@ -733,15 +724,32 @@ User:
         }
     ]
 
+    # only last chat memory
     messages += st.session_state.chat[-10:]
 
+    # ONLY ONE clean user input
     messages.append({
         "role": "user",
-        "content": final_prompt
+        "content": f"""
+User question: {prompt}
+
+Web context:
+{web_data}
+"""
     })
 
-    try:
+    messages = [
+        {
+            "role": "system",
+            "content": system_prompt() + "\nMEMORY:\n" + memory
+        },
+        {
+            "role": "user",
+            "content": final_prompt
+        }
+    ]
 
+    try:
         completion = groq.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
@@ -751,65 +759,22 @@ User:
         )
 
         response = ""
-
         placeholder = st.empty()
 
-        # typing animation (stream)
         for chunk in completion:
             piece = chunk.choices[0].delta.content or ""
             response += piece
 
             placeholder.markdown(
-                f"""
-                <div class='chat-container'>
-                <div class='ai'>
-                ⚡ {response}▌
-                </div>
-                </div>
-                """,
+                f"<div class='ai'>⚡ {response}▌</div>",
                 unsafe_allow_html=True
             )
-
-        # FINAL CLEAN OUTPUT (remove cursor)
-        placeholder.markdown(
-            f"""
-            <div class='chat-container'>
-            <div class='ai'>
-            ⚡ {response}
-            </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
 
         return response
 
     except Exception as e:
-
         logging.exception(e)
-
-        try:
-
-            gemini_prompt = f"""
-{system_prompt()}
-
-MEMORY:
-{memory}
-
-USER:
-{prompt}
-"""
-
-            response = gemini.generate_content(gemini_prompt)
-
-            return response.text
-
-        except Exception as e:
-
-            logging.exception(e)
-
-            return "AI temporarily unavailable."
-
+        return "AI temporarily unavailable."
 # =========================
 # INPUT
 # =========================

@@ -97,10 +97,14 @@ CREATE TABLE IF NOT EXISTS memory (
 conn.commit()
 
 # =========================
+# =========================
 # SESSION
 # =========================
 if "chat" not in st.session_state:
     st.session_state.chat = []
+
+if "chat_loaded" not in st.session_state:
+    st.session_state.chat_loaded = False
 
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
@@ -502,10 +506,9 @@ def trim_memory(max_rows=700):
 # =========================
 # LOAD CHAT
 # =========================
-if st.session_state.logged_in:
-
+if st.session_state.logged_in and "chat_loaded" not in st.session_state:
     st.session_state.chat = load_memory()
-
+    st.session_state.chat_loaded = True
 # =========================
 # SIDEBAR
 # =========================
@@ -551,6 +554,9 @@ if st.sidebar.button("🚪 Logout"):
     st.session_state.logged_in = False
     st.session_state.username = ""
     st.session_state.chat = []
+
+    # FIX ADDED
+    st.session_state.chat_loaded = False
 
     st.rerun()
 

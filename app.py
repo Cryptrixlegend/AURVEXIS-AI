@@ -121,6 +121,21 @@ if "last_request" not in st.session_state:
     st.session_state.last_request = 0
 
 # =========================
+# AUTO LOGIN CHECK
+# =========================
+cursor.execute("""
+SELECT username FROM users
+WHERE remember = 1
+LIMIT 1
+""")
+
+auto_user = cursor.fetchone()
+
+if auto_user and not st.session_state.logged_in:
+    st.session_state.logged_in = True
+    st.session_state.username = auto_user[0]
+
+# =========================
 # PERSONALITIES
 # =========================
 PERSONALITIES = {
@@ -387,9 +402,16 @@ if not st.session_state.logged_in:
 
             if user:
 
-                st.session_state.logged_in = True
-                st.session_state.username = l_user
+    st.session_state.logged_in = True
+    st.session_state.username = l_user
 
+    if remember:
+        cursor.execute("""
+        UPDATE users
+        SET remember = 1
+        WHERE username = ?
+        """, (l_user,))
+        conn.commit()
                 if remember:
                     st.session_state.remember = True
 

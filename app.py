@@ -400,29 +400,28 @@ if not st.session_state.logged_in:
                 l_pass
             )
 
-           if user:
+if st.button("Login"):
 
-    st.session_state.logged_in = True
-    st.session_state.username = l_user
+    user = login(l_user, l_pass)
 
-    if remember:
-        cursor.execute("""
-        UPDATE users
-        SET remember = 1
-        WHERE username = ?
-        """, (l_user,))
-        conn.commit()
+    if user:
 
-    st.success("Login Successful")
-    st.rerun()
+        st.session_state.logged_in = True
+        st.session_state.username = l_user
 
-                st.rerun()
+        if remember:
+            cursor.execute("""
+            UPDATE users
+            SET remember = 1
+            WHERE username = ?
+            """, (l_user,))
+            conn.commit()
 
-            else:
+        st.success("Login Successful")
+        st.rerun()
 
-                st.error(
-                    "Invalid Credentials"
-                )
+    else:
+        st.error("Invalid Credentials")
 
     with tab2:
 
@@ -573,12 +572,17 @@ if st.sidebar.button("🚪 Logout"):
     st.session_state.logged_in = False
     st.session_state.username = ""
     st.session_state.chat = []
-
-    # FIX ADDED
     st.session_state.chat_loaded = False
 
-    st.rerun()
+    cursor.execute("""
+    UPDATE users
+    SET remember = 0
+    WHERE username = ?
+    """, (st.session_state.username,))
 
+    conn.commit()
+
+    st.rerun()
 # =========================
 # THEME
 # =========================

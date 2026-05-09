@@ -716,11 +716,7 @@ def generate(prompt):
     web_data = ""
 
     if use_web:
-
-        web_data = web_search(
-            prompt
-        )
-# =========================
+        web_data = web_search(prompt)
 
     final_prompt = f"""
 External web data:
@@ -733,10 +729,7 @@ User:
     messages = [
         {
             "role": "system",
-            "content":
-            system_prompt()
-            + "\nMEMORY:\n"
-            + memory
+            "content": system_prompt() + "\nMEMORY:\n" + memory
         }
     ]
 
@@ -761,8 +754,8 @@ User:
 
         placeholder = st.empty()
 
+        # typing animation (stream)
         for chunk in completion:
-
             piece = chunk.choices[0].delta.content or ""
             response += piece
 
@@ -777,6 +770,18 @@ User:
                 unsafe_allow_html=True
             )
 
+        # FINAL CLEAN OUTPUT (remove cursor)
+        placeholder.markdown(
+            f"""
+            <div class='chat-container'>
+            <div class='ai'>
+            ⚡ {response}
+            </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
         return response
 
     except Exception as e:
@@ -786,18 +791,16 @@ User:
         try:
 
             gemini_prompt = f"""
-            {system_prompt()}
+{system_prompt()}
 
-            MEMORY:
-            {memory}
+MEMORY:
+{memory}
 
-            USER:
-            {prompt}
-            """
+USER:
+{prompt}
+"""
 
-            response = gemini.generate_content(
-                gemini_prompt
-            )
+            response = gemini.generate_content(gemini_prompt)
 
             return response.text
 

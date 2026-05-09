@@ -717,26 +717,12 @@ def generate(prompt):
     if use_web:
         web_data = web_search(prompt)
 
-    messages = [
-        {
-            "role": "system",
-            "content": system_prompt() + "\nMEMORY:\n" + memory
-        }
-    ]
-
-    # only last chat memory
-    messages += st.session_state.chat[-10:]
-
-    # ONLY ONE clean user input
-    messages.append({
-        "role": "user",
-        "content": f"""
+    final_prompt = f"""
 User question: {prompt}
 
 Web context:
 {web_data}
 """
-    })
 
     messages = [
         {
@@ -762,7 +748,7 @@ Web context:
         placeholder = st.empty()
 
         for chunk in completion:
-            piece = chunk.choices[0].delta.content or ""
+            piece = getattr(chunk.choices[0].delta, "content", "") or ""
             response += piece
 
             placeholder.markdown(

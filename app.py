@@ -377,52 +377,34 @@ if not st.session_state.logged_in:
         "Login",
         "Register"
     ])
+with tab1:
 
-    with tab1:
+    l_user = st.text_input("Username")
+    l_pass = st.text_input("Password", type="password")
+    remember = st.checkbox("Stay Logged In")
 
-        l_user = st.text_input(
-            "Username"
-        )
+    if st.button("Login", key="login_btn"):
 
-        l_pass = st.text_input(
-            "Password",
-            type="password"
-        )
+        user = login(l_user, l_pass)
 
-        remember = st.checkbox(
-            "Stay Logged In"
-        )
+        if user:
 
-        if st.button("Login"):
+            st.session_state.logged_in = True
+            st.session_state.username = l_user
 
-            user = login(
-                l_user,
-                l_pass
-            )
+            if remember:
+                cursor.execute("""
+                UPDATE users
+                SET remember = 1
+                WHERE username = ?
+                """, (l_user,))
+                conn.commit()
 
-if st.button("Login"):
+            st.success("Login Successful")
+            st.rerun()
 
-    user = login(l_user, l_pass)
-
-    if user:
-
-        st.session_state.logged_in = True
-        st.session_state.username = l_user
-
-        if remember:
-            cursor.execute("""
-            UPDATE users
-            SET remember = 1
-            WHERE username = ?
-            """, (l_user,))
-            conn.commit()
-
-        st.success("Login Successful")
-        st.rerun()
-
-    else:
-        st.error("Invalid Credentials")
-
+        else:
+            st.error("Invalid Credentials")
     with tab2:
 
         r_user = st.text_input(
@@ -434,9 +416,7 @@ if st.button("Login"):
             type="password"
         )
 
-        if st.button(
-            "Create Account"
-        ):
+        if st.button("Create Account", key="register_btn"):
 
             ok = register(
                 r_user,
@@ -569,6 +549,8 @@ st.sidebar.info(
 # =========================
 if st.sidebar.button("🚪 Logout"):
 
+    user = st.session_state.username  # SAVE FIRST
+
     st.session_state.logged_in = False
     st.session_state.username = ""
     st.session_state.chat = []
@@ -578,7 +560,7 @@ if st.sidebar.button("🚪 Logout"):
     UPDATE users
     SET remember = 0
     WHERE username = ?
-    """, (st.session_state.username,))
+    """, (user,))
 
     conn.commit()
 

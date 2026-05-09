@@ -936,12 +936,13 @@ for msg in st.session_state.chat:
 
     else:
 
-        st.markdown(
-            f"""
-            <div class='chat-container'>
-            <div class='ai'>
-            ⚡ {msg['content']}
-            </div>
-            </div>
-            """,
-            unsafe_allow_html=True
+       st.markdown(
+    f"""
+    <div class='chat-container'>
+    <div class='ai'>
+    ⚡ {msg['content']}
+    </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)

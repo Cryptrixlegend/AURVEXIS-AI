@@ -709,7 +709,6 @@ Behavior:
 
 # =========================
 # AI CORE
-# =========================
 def generate(prompt):
 
     memory = get_memory_context()
@@ -721,6 +720,7 @@ def generate(prompt):
         web_data = web_search(
             prompt
         )
+# =========================
 
     final_prompt = f"""
 External web data:
@@ -763,14 +763,7 @@ User:
 
         for chunk in completion:
 
-            piece = (
-                chunk
-                .choices[0]
-                .delta
-                .content
-                or ""
-            )
-
+            piece = chunk.choices[0].delta.content or ""
             response += piece
 
             placeholder.markdown(
@@ -783,17 +776,6 @@ User:
                 """,
                 unsafe_allow_html=True
             )
-
-        placeholder.markdown(
-            f"""
-            <div class='chat-container'>
-            <div class='ai'>
-            ⚡ {response}
-            </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
 
         return response
 

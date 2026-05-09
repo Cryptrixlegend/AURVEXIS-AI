@@ -400,7 +400,7 @@ if not st.session_state.logged_in:
                 l_pass
             )
 
-            if user:
+           if user:
 
     st.session_state.logged_in = True
     st.session_state.username = l_user
@@ -412,12 +412,9 @@ if not st.session_state.logged_in:
         WHERE username = ?
         """, (l_user,))
         conn.commit()
-                if remember:
-                    st.session_state.remember = True
 
-                st.success(
-                    "Login Successful"
-                )
+    st.success("Login Successful")
+    st.rerun()
 
                 st.rerun()
 

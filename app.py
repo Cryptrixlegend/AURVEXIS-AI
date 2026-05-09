@@ -373,72 +373,56 @@ if not st.session_state.logged_in:
     '>
     """, unsafe_allow_html=True)
 
-    tab1, tab2 = st.tabs([
-        "Login",
-        "Register"
-    ])
-with tab1:
+    tab1, tab2 = st.tabs(["Login", "Register"])
 
-    l_user = st.text_input("Username")
-    l_pass = st.text_input("Password", type="password")
-    remember = st.checkbox("Stay Logged In")
+    # ================= LOGIN =================
+    with tab1:
 
-    if st.button("Login", key="login_btn"):
+        l_user = st.text_input("Username", key="login_user")
+        l_pass = st.text_input("Password", type="password", key="login_pass")
+        remember = st.checkbox("Stay Logged In", key="remember_me")
 
-        user = login(l_user, l_pass)
+        if st.button("Login", key="login_btn"):
 
-        if user:
+            user = login(l_user, l_pass)
 
-            st.session_state.logged_in = True
-            st.session_state.username = l_user
+            if user:
 
-            if remember:
-                cursor.execute("""
-                UPDATE users
-                SET remember = 1
-                WHERE username = ?
-                """, (l_user,))
-                conn.commit()
+                st.session_state.logged_in = True
+                st.session_state.username = l_user
 
-            st.success("Login Successful")
-            st.rerun()
+                if remember:
+                    cursor.execute("""
+                    UPDATE users
+                    SET remember = 1
+                    WHERE username = ?
+                    """, (l_user,))
+                    conn.commit()
 
-        else:
-            st.error("Invalid Credentials")
+                st.success("Login Successful")
+                st.rerun()
+
+            else:
+                st.error("Invalid Credentials")
+
+    # ================= REGISTER =================
     with tab2:
 
-        r_user = st.text_input(
-            "Create Username"
-        )
-
-        r_pass = st.text_input(
-            "Create Password",
-            type="password"
-        )
+        r_user = st.text_input("Create Username", key="reg_user")
+        r_pass = st.text_input("Create Password", type="password", key="reg_pass")
 
         if st.button("Create Account", key="register_btn"):
 
-            ok = register(
-                r_user,
-                r_pass
-            )
+            ok = register(r_user, r_pass)
 
             if ok:
-
-                st.success(
-                    "Account Created"
-                )
-
+                st.success("Account Created")
             else:
-
-                st.error(
-                    "Username Already Exists"
-                )
+                st.error("Username Already Exists")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.stop()
-
 # =========================
 # MEMORY
 # =========================

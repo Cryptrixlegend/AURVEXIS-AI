@@ -108,10 +108,8 @@ if "theme" not in st.session_state:
 if "cache" not in st.session_state:
     st.session_state.cache = {}
 
-if "logged_in" not in st.session_state:
-   if st.session_state.logged_in and not st.session_state.chat:
-    st.session_state.chat = load_memory()
-
+if "logged_in" not in st.session_state: st.session_state.logged_in = False
+    
 if "username" not in st.session_state:
     st.session_state.username = ""
 

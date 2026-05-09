@@ -109,7 +109,8 @@ if "cache" not in st.session_state:
     st.session_state.cache = {}
 
 if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+   if st.session_state.logged_in and not st.session_state.chat:
+    st.session_state.chat = load_memory()
 
 if "username" not in st.session_state:
     st.session_state.username = ""
@@ -132,7 +133,7 @@ PERSONALITIES = {
 # =========================
 def apply_theme():
 
-    if st.session_state.theme == "dark":
+    if st.session_state.theme == "light":
 
         bg = "#0b0f19"
         text = "white"

@@ -103,8 +103,9 @@ conn.commit()
 if "chat" not in st.session_state:
     st.session_state.chat = []
 
-if "chat_loaded" not in st.session_state:
-    st.session_state.chat_loaded = False
+if st.session_state.logged_in and not st.session_state.chat_loaded:
+    st.session_state.chat = load_memory()
+    st.session_state.chat_loaded = True
 
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
@@ -150,19 +151,17 @@ PERSONALITIES = {
 # =========================
 def apply_theme():
 
-    if st.session_state.theme == "light":
+   if st.session_state.theme == "light":
+    bg = "#ffffff"
+    text = "#111"
+    ai = "#f3f4f6"
+    user = "#dbeafe"
 
-        bg = "#0b0f19"
-        text = "white"
-        ai = "rgba(31,41,55,0.75)"
-        user = "linear-gradient(135deg,#2563eb,#00ffd5)"
-
-    else:
-
-        bg = "#ffffff"
-        text = "#111"
-        ai = "#f3f4f6"
-        user = "#dbeafe"
+else:
+    bg = "#0b0f19"
+    text = "white"
+    ai = "rgba(31,41,55,0.75)"
+    user = "linear-gradient(135deg,#2563eb,#00ffd5)"
 
     st.markdown(f"""
     <style>

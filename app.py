@@ -151,17 +151,19 @@ PERSONALITIES = {
 # =========================
 def apply_theme():
 
-   if st.session_state.theme == "light":
-    bg = "#ffffff"
-    text = "#111"
-    ai = "#f3f4f6"
-    user = "#dbeafe"
+    if st.session_state.theme == "light":
 
-else:
-    bg = "#0b0f19"
-    text = "white"
-    ai = "rgba(31,41,55,0.75)"
-    user = "linear-gradient(135deg,#2563eb,#00ffd5)"
+        bg = "#ffffff"
+        text = "#111"
+        ai = "#f3f4f6"
+        user = "#dbeafe"
+
+    else:
+
+        bg = "#0b0f19"
+        text = "white"
+        ai = "rgba(31,41,55,0.75)"
+        user = "linear-gradient(135deg,#2563eb,#00ffd5)"
 
     st.markdown(f"""
     <style>
@@ -238,6 +240,7 @@ else:
         font-weight:500;
         box-shadow:0 0 15px rgba(0,255,213,0.2);
         animation: fadeIn 0.3s ease-in;
+        white-space: pre-wrap;
     }}
 
     .ai {{
@@ -249,6 +252,7 @@ else:
         border-left:3px solid #00ffd5;
         box-shadow:0 0 15px rgba(0,255,213,0.1);
         animation: fadeIn 0.3s ease-in;
+        white-space: pre-wrap;
     }}
 
     section[data-testid="stSidebar"] {{
@@ -281,7 +285,6 @@ else:
 
     </style>
     """, unsafe_allow_html=True)
-
 apply_theme()
 
 # =========================

@@ -141,10 +141,10 @@ if auto_user and not st.session_state.logged_in:
 # PERSONALITIES
 # =========================
 PERSONALITIES = {
-    "Normal": "Be helpful, balanced and smart.",
-    "Genius": "Give advanced expert-level answers.",
-    "Motivator": "Act like a strong mentor.",
-    "Savage": "Be brutally honest and direct."
+        "Normal": "Helpful intelligent assistant",
+        "Genius": "Ultra expert-level reasoning AI",
+        "Motivator": "Strong motivational mentor",
+        "Savage": "Brutally honest assistant",
 }
 
 # =========================
@@ -798,15 +798,28 @@ if user_input:
         time.time()
     )
 
-    save_memory(
-        "user",
-        user_input
-    )
+# CLEAR STREAM BOX
+stream_box.empty()
 
-    st.session_state.chat.append({
-        "role": "user",
-        "content": user_input
-    })
+time.sleep(0.05)
+
+st.session_state.cache[key] = reply
+
+# =========================
+# SAVE FINAL RESPONSE
+# =========================
+save_memory("assistant", reply)
+
+trim_memory()
+
+st.session_state.chat.append({
+    "role": "assistant",
+    "content": reply
+})
+
+stream_box.empty()
+
+st.rerun()
 
     memory = get_memory_context()
 

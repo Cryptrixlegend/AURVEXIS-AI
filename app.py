@@ -830,41 +830,45 @@ if user_input:
 
     # refresh UI
     st.rerun()
-    memory = get_memory_context()
 
-    key = cache_key(
-        user_input,
-        memory,
-        mode
-    )
+    # BUGFIX: prevent duplicate execution block after rerun
+    if False:
 
-    if key in st.session_state.cache:
+        memory = get_memory_context()
 
-        reply = st.session_state.cache[key]
+        key = cache_key(
+            user_input,
+            memory,
+            mode
+        )
 
-    else:
+        if key in st.session_state.cache:
 
-        with st.spinner(
-            "⚡ AURVEXIS thinking..."
-        ):
+            reply = st.session_state.cache[key]
 
-            reply = generate(
-                user_input
-            )
+        else:
 
-        st.session_state.cache[key] = reply
+            with st.spinner(
+                "⚡ AURVEXIS thinking..."
+            ):
 
-    save_memory(
-        "assistant",
-        reply
-    )
+                reply = generate(
+                    user_input
+                )
 
-    trim_memory()
+            st.session_state.cache[key] = reply
 
-    st.session_state.chat.append({
-        "role": "assistant",
-        "content": reply
-    })
+        save_memory(
+            "assistant",
+            reply
+        )
+
+        trim_memory()
+
+        st.session_state.chat.append({
+            "role": "assistant",
+            "content": reply
+        })
 
 # =========================
 # DISPLAY CHAT
@@ -886,13 +890,13 @@ for msg in st.session_state.chat:
 
     else:
 
-       st.markdown(
-    f"""
-    <div class='chat-container'>
-    <div class='ai'>
-    ⚡ {msg['content']}
-    </div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+        st.markdown(
+            f"""
+            <div class='chat-container'>
+            <div class='ai'>
+            ⚡ {msg['content']}
+            </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )

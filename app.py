@@ -98,14 +98,14 @@ conn.commit()
 
 # =========================
 # =========================
+# =========================
 # SESSION
 # =========================
 if "chat" not in st.session_state:
     st.session_state.chat = []
 
-if st.session_state.logged_in and not st.session_state.chat_loaded:
-    st.session_state.chat = load_memory()
-    st.session_state.chat_loaded = True
+if "chat_loaded" not in st.session_state:
+    st.session_state.chat_loaded = False
 
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
@@ -113,8 +113,9 @@ if "theme" not in st.session_state:
 if "cache" not in st.session_state:
     st.session_state.cache = {}
 
-if "logged_in" not in st.session_state: st.session_state.logged_in = False
-    
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
 if "username" not in st.session_state:
     st.session_state.username = ""
 

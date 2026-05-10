@@ -778,49 +778,58 @@ else:
     )
 
 # =========================
+# =========================
 # CHAT FLOW
 # =========================
 if user_input:
 
-    if (
-        time.time()
-        - st.session_state.last_request
-        < 1.5
-    ):
-
-        st.warning(
-            "Slow down."
-        )
-
+    # rate limit
+    if time.time() - st.session_state.last_request < 1.5:
+        st.warning("Slow down.")
         st.stop()
 
-    st.session_state.last_request = (
-        time.time()
+    st.session_state.last_request = time.time()
+
+    # save user message
+    st.session_state.chat.append({
+        "role": "user",
+        "content": user_input
+    })
+
+    # memory + cache key
+    memory = get_memory_context()
+
+    key = cache_key(
+        user_input,
+        memory,
+        mode
     )
 
-# CLEAR STREAM BOX
-stream_box.empty()
+    # response placeholder
+    reply = ""
 
-time.sleep(0.05)
+    # cached response
+    if key in st.session_state.cache:
+        reply = st.session_state.cache[key]
 
-st.session_state.cache[key] = reply
+    else:
+        with st.spinner("⚡ AURVEXIS thinking..."):
+            reply = generate(user_input)
 
-# =========================
-# SAVE FINAL RESPONSE
-# =========================
-save_memory("assistant", reply)
+        st.session_state.cache[key] = reply
 
-trim_memory()
+    # save memory
+    save_memory("assistant", reply)
+    trim_memory()
 
-st.session_state.chat.append({
-    "role": "assistant",
-    "content": reply
-})
+    # append assistant chat
+    st.session_state.chat.append({
+        "role": "assistant",
+        "content": reply
+    })
 
-stream_box.empty()
-
-st.rerun()
-
+    # refresh UI
+    st.rerun()
     memory = get_memory_context()
 
     key = cache_key(

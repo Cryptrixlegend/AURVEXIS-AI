@@ -226,6 +226,7 @@ ANTI-PATTERN RULES:
 - No toxic language or insults
 """,
 }
+
 # =========================
 # THEME
 # =========================
@@ -237,6 +238,8 @@ def apply_theme():
         text = "#111"
         ai = "#f3f4f6"
         user = "#dbeafe"
+        input_bg = "#ffffff"
+        input_text = "#111111"
 
     else:
 
@@ -244,6 +247,8 @@ def apply_theme():
         text = "white"
         ai = "rgba(31,41,55,0.75)"
         user = "linear-gradient(135deg,#2563eb,#00ffd5)"
+        input_bg = "#111827"
+        input_text = "#ffffff"
 
     st.markdown(f"""
     <style>
@@ -356,15 +361,23 @@ def apply_theme():
         box-shadow:0 0 15px #00ffd5;
     }}
 
+    /* BUGFIX: fixed invisible text issue in light theme input fields */
     .stTextInput input {{
         border-radius:12px;
-        background:#111827;
-        color:white;
+        background:{input_bg};
+        color:{input_text};
         border:1px solid rgba(255,255,255,0.1);
+    }}
+
+    /* BUGFIX: fixed Streamlit chat input visibility in light theme */
+    div[data-testid="stChatInput"] textarea {{
+        background:{input_bg} !important;
+        color:{input_text} !important;
     }}
 
     </style>
     """, unsafe_allow_html=True)
+
 apply_theme()
 
 # =========================
@@ -388,7 +401,6 @@ Founded by Tanishq • AURVEXIS LABS • EST. 2026
 </div>
 """, unsafe_allow_html=True)
 
-
 st.markdown("""
 <center><b>Think Beyond Limits</b></center>
 """, unsafe_allow_html=True)
@@ -408,6 +420,10 @@ def register(username, password):
 
     try:
 
+        # BUGFIX: prevent empty username/password registration
+        if not username.strip() or not password.strip():
+            return False
+
         cursor.execute("""
         INSERT INTO users
         (username, password)
@@ -421,7 +437,8 @@ def register(username, password):
 
         return True
 
-    except:
+    except Exception as e:
+        logging.exception(e)
         return False
 
 def login(username, password):
@@ -466,6 +483,11 @@ if not st.session_state.logged_in:
 
         if st.button("Login", key="login_btn"):
 
+            # BUGFIX: validate empty login fields
+            if not l_user.strip() or not l_pass.strip():
+                st.error("Username and Password required")
+                st.stop()
+
             user = login(l_user, l_pass)
 
             if user:
@@ -473,12 +495,20 @@ if not st.session_state.logged_in:
                 st.session_state.logged_in = True
                 st.session_state.username = l_user
 
+                # BUGFIX: clear previous remembered users before setting new one
                 if remember:
+
+                    cursor.execute("""
+                    UPDATE users
+                    SET remember = 0
+                    """)
+
                     cursor.execute("""
                     UPDATE users
                     SET remember = 1
                     WHERE username = ?
                     """, (l_user,))
+
                     conn.commit()
 
                 st.success("Login Successful")
@@ -495,6 +525,11 @@ if not st.session_state.logged_in:
 
         if st.button("Create Account", key="register_btn"):
 
+            # BUGFIX: validate registration fields
+            if not r_user.strip() or not r_pass.strip():
+                st.error("Username and Password required")
+                st.stop()
+
             ok = register(r_user, r_pass)
 
             if ok:
@@ -505,6 +540,7 @@ if not st.session_state.logged_in:
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.stop()
+
 # =========================
 # MEMORY
 # =========================
@@ -555,15 +591,22 @@ def load_memory(limit=50):
 
 def trim_memory(max_rows=700):
 
+    # BUGFIX: trim memory only for current user instead of deleting global memory
     cursor.execute("""
     DELETE FROM memory
-    WHERE id NOT IN (
+    WHERE username = ?
+    AND id NOT IN (
         SELECT id
         FROM memory
+        WHERE username = ?
         ORDER BY id DESC
         LIMIT ?
     )
-    """, (max_rows,))
+    """, (
+        st.session_state.username,
+        st.session_state.username,
+        max_rows
+    ))
 
     conn.commit()
 
@@ -617,7 +660,7 @@ st.sidebar.info(
 # =========================
 if st.sidebar.button("🚪 Logout"):
 
-    user = st.session_state.username  # SAVE FIRST
+    user = st.session_state.username
 
     st.session_state.logged_in = False
     st.session_state.username = ""
@@ -633,6 +676,7 @@ if st.sidebar.button("🚪 Logout"):
     conn.commit()
 
     st.rerun()
+
 # =========================
 # THEME
 # =========================
@@ -665,6 +709,9 @@ if st.sidebar.button(
     conn.commit()
 
     st.session_state.chat = []
+
+    # BUGFIX: clear cached responses after clearing chat
+    st.session_state.cache = {}
 
     st.rerun()
 
@@ -793,6 +840,7 @@ Behavior:
 
 # =========================
 # AI CORE
+# =========================
 def generate(prompt):
 
     memory = get_memory_context()
@@ -820,6 +868,7 @@ Web context:
     ]
 
     try:
+
         completion = groq.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
@@ -832,7 +881,17 @@ Web context:
         placeholder = st.empty()
 
         for chunk in completion:
-            piece = getattr(chunk.choices[0].delta, "content", "") or ""
+
+            # BUGFIX: safely handle malformed streaming chunks
+            if not chunk.choices:
+                continue
+
+            piece = getattr(
+                chunk.choices[0].delta,
+                "content",
+                ""
+            ) or ""
+
             response += piece
 
             placeholder.markdown(
@@ -840,11 +899,20 @@ Web context:
                 unsafe_allow_html=True
             )
 
+        # BUGFIX: render final response without cursor symbol
+        placeholder.markdown(
+            f"<div class='ai'>⚡ {response}</div>",
+            unsafe_allow_html=True
+        )
+
         return response
 
     except Exception as e:
+
         logging.exception(e)
+
         return "AI temporarily unavailable."
+
 # =========================
 # INPUT
 # =========================
@@ -864,6 +932,12 @@ else:
 # =========================
 if user_input:
 
+    # BUGFIX: prevent blank prompts
+    user_input = user_input.strip()
+
+    if not user_input:
+        st.stop()
+
     # rate limit
     if time.time() - st.session_state.last_request < 1.5:
         st.warning("Slow down.")
@@ -876,6 +950,9 @@ if user_input:
         "role": "user",
         "content": user_input
     })
+
+    # BUGFIX: save user messages into persistent memory
+    save_memory("user", user_input)
 
     # memory + cache key
     memory = get_memory_context()
@@ -891,16 +968,20 @@ if user_input:
 
     # cached response
     if key in st.session_state.cache:
+
         reply = st.session_state.cache[key]
 
     else:
+
         with st.spinner("⚡ AURVEXIS thinking..."):
+
             reply = generate(user_input)
 
         st.session_state.cache[key] = reply
 
     # save memory
     save_memory("assistant", reply)
+
     trim_memory()
 
     # append assistant chat

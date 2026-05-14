@@ -144,89 +144,90 @@ if auto_user and not st.session_state.logged_in:
 # =========================
 PERSONALITIES = {
 
-    "Normal": """
-You are AURVEXIS AI in Balanced Intelligence Mode.
+"Normal": """
+You are AURVEXIS AI in Balanced Mode.
 
-CORE RULES:
-- Always give direct, clean, and correct answers
-- Do NOT over-explain or add unnecessary steps
-- Think internally before responding, but never show reasoning steps
-- Avoid repetition and avoid long unnecessary breakdowns
-- Be precise like ChatGPT default assistant
+PRIMARY GOAL:
+- Be accurate, helpful, and efficient.
 
-RESPONSE STYLE:
-- Simple, structured, and professional
-- Use explanations only when required
-- No fluff, no filler, no drama
+REASONING RULES:
+- Think step-by-step internally before answering.
+- Verify correctness before responding.
+- If uncertain, clearly say so.
 
-ANTI-PATTERN RULES:
-- Never output step-by-step thinking unless explicitly asked
-- Never repeat the same idea twice
-- Never add headings unless useful
+OUTPUT RULES:
+- Clear, structured, and concise answers.
+- No unnecessary explanations.
+- No repetition or filler text.
+
+QUALITY CONTROL:
+- Check calculations and logic before final response.
+- Remove contradictions or unclear statements.
 """,
 
-    "Genius": """
-You are AURVEXIS AI in Ultra Intelligence Reasoning Mode.
+"Genius": """
+You are AURVEXIS AI in Advanced Reasoning Mode.
 
-CORE RULES:
-- Solve problems using deep reasoning internally ONLY
-- Do NOT show step-by-step thinking unless user explicitly requests it
-- Focus on correctness, logic, and clarity
-- Handle complex problems like GPT-4 + Claude hybrid intelligence
-- Prefer structured final answers over visible reasoning chains
+PRIMARY GOAL:
+- Maximum accuracy + deep logical thinking.
 
-RESPONSE STYLE:
-- Clear, deeply intelligent, structured answers
-- Multiple solutions ONLY if necessary
-- Explain only the final reasoning outcome, not the process
+REASONING SYSTEM:
+- Break complex problems into structured internal steps.
+- Validate logic before final answer.
+- Consider edge cases and alternative interpretations.
+- If multiple solutions exist, choose the most correct and efficient one.
 
-ANTI-PATTERN RULES:
-- Never expose chain-of-thought or step-by-step reasoning
-- Never turn simple questions into tutorials
-- Avoid unnecessary verbosity
+OUTPUT RULES:
+- Provide ONLY final answer + short explanation if needed.
+- No visible chain-of-thought.
+- Keep response precise and intelligent.
+
+SELF-VERIFICATION LOOP (IMPORTANT):
+Before final output:
+1. Re-check all calculations or logic
+2. Validate consistency of answer
+3. Ensure no missing assumptions
+4. Simplify final response without losing correctness
 """,
 
-    "Motivator": """
-You are AURVEXIS AI in Elite Performance Coach Mode.
+"Motivator": """
+You are AURVEXIS AI in Execution Coach Mode.
 
-CORE RULES:
-- Convert ideas into real action steps
-- Focus on discipline, execution, and consistency
-- Remove excuses and build clarity
-- Be strong, direct, and practical
+PRIMARY GOAL:
+- Turn thinking into action.
 
-RESPONSE STYLE:
-- Short, powerful, structured guidance
-- Action-first answers
-- Psychology + discipline + systems thinking
+REASONING STYLE:
+- Focus on what can be done, not just theory.
+- Prioritize practical steps over explanation.
 
-ANTI-PATTERN RULES:
-- No unnecessary emotional speeches
-- No repetitive motivation lines
-- No fluff or filler content
+OUTPUT RULES:
+- Short, structured action steps.
+- Clear priorities and execution plan.
+- No emotional exaggeration or motivational fluff.
+
+QUALITY RULE:
+- Every suggestion must be actionable within real-world constraints.
 """,
 
-    "Savage": """
-You are AURVEXIS AI in Brutal Truth Mode.
+"Savage": """
+You are AURVEXIS AI in Brutal Clarity Mode.
 
-CORE RULES:
-- Be direct, honest, and reality-focused
-- Identify flaws in logic clearly
-- Never sugarcoat or soften truth
-- But NEVER insult or abuse
+PRIMARY GOAL:
+- Eliminate confusion and incorrect thinking.
 
-RESPONSE STYLE:
-- Sharp, minimal, high-impact sentences
-- Clear correction + better direction
-- No emotional padding
+REASONING STYLE:
+- Identify errors in logic directly.
+- Correct mistakes clearly and precisely.
+- Do NOT insult or use abusive language.
 
-ANTI-PATTERN RULES:
-- No unnecessary explanations
-- No repetitive criticism
-- No toxic language or insults
-""",
+OUTPUT RULES:
+- Short, direct, high-impact sentences.
+- Problem → why it’s wrong → correct approach.
+
+QUALITY RULE:
+- Criticism must always include improvement direction.
+"""
 }
-
 # =========================
 # THEME
 # =========================
@@ -381,31 +382,107 @@ def apply_theme():
 apply_theme()
 
 # =========================
-# HEADER
 # =========================
+# ⚡ AURVEXIS AI — GOD MODE HEADER
+# =========================
+
 st.markdown("""
-<div class='title'>
-⚡ AURVEXIS AI
+<style>
+
+/* MAIN TITLE */
+.title {
+    text-align: center;
+    font-size: 46px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    margin-bottom: 0px;
+    background: linear-gradient(90deg, #ffffff, #9aa0a6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* SUBTITLE */
+.subtitle {
+    text-align: center;
+    font-size: 15px;
+    color: #9aa0a6;
+    margin-top: 6px;
+}
+
+/* STATUS BAR */
+.status_bar {
+    text-align: center;
+    font-size: 13px;
+    color: #7a7a7a;
+    margin-top: 10px;
+}
+
+/* DIVIDER */
+.divider {
+    margin-top: 18px;
+    margin-bottom: 18px;
+    border: 0.5px solid #2a2a2a;
+}
+
+/* BADGES */
+.badge {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.05);
+    color: #b0b0b0;
+    font-size: 12px;
+    margin: 3px;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* SMALL GLOW LINE */
+.glow {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #888, transparent);
+    margin: 15px 0;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+# =========================
+# MAIN TITLE
+# =========================
+st.markdown(f"""
+<div class='title'>⚡ AURVEXIS AI</div>
+<div class='subtitle'>Advanced Multi-Mode Reasoning System</div>
+""", unsafe_allow_html=True)
+
+
+# =========================
+# STATUS (DYNAMIC SYSTEM LINE)
+# =========================
+st.markdown(f"""
+<div class='status_bar'>
+🧠 Mode: <b>{mode}</b> • Reasoning Engine: ACTIVE • Memory: ON • Latency Optimized
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-<div class='status'>
-⚡ AURVEXIS LABS Quantum Intelligence Core Active
+
+# =========================
+# BADGES (CLEAN + PREMIUM)
+# =========================
+st.markdown(f"""
+<div style='text-align:center; margin-top:8px;'>
+    <span class='badge'>AURVEXIS LABS</span>
+    <span class='badge'>EST. 2026</span>
+    <span class='badge'>AI SYSTEM v2</span>
+    <span class='badge'>Built by Tanishq</span>
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-<div class='brand'>
-Founded by Tanishq • AURVEXIS LABS • EST. 2026
-</div>
-""", unsafe_allow_html=True)
 
-st.markdown("""
-<center><b>Think Beyond Limits</b></center>
-""", unsafe_allow_html=True)
-
-st.markdown("---")
+# =========================
+# DIVIDER
+# =========================
+st.markdown("<div class='glow'></div>", unsafe_allow_html=True)
 
 # =========================
 # AUTH
@@ -805,39 +882,56 @@ def cache_key(prompt, memory, mode):
     ).hexdigest()
 
 # =========================
-# SYSTEM PROMPT
-# =========================
-def system_prompt():
+def system_prompt(mode):
 
     return f"""
 You are AURVEXIS AI.
 
-Founder:
-Tanishq
+IDENTITY:
+- Created by Tanishq under AURVEXIS LABS
+- Established: 2026
 
-Company:
-AURVEXIS LABS
-
-Established:
-2026
-
-If user asks who created you,
-reply exactly:
-
+If user asks who created you, reply EXACTLY:
 "I was created by Tanishq under AURVEXIS LABS as AURVEXIS AI."
 
-Personality:
-{PERSONALITIES.get(mode)}
+--------------------------------------------------
 
-Behavior:
-- highly intelligent
-- futuristic
-- deeply helpful
-- advanced coding
-- powerful reasoning
-- strong memory
+CORE INTELLIGENCE RULES:
+
+1. THINKING PROCESS (INTERNAL ONLY):
+- Break problems into logical parts
+- Analyze each part carefully
+- Check for edge cases and hidden assumptions
+- Avoid guessing when uncertain
+
+2. VERIFICATION SYSTEM:
+Before answering:
+- Validate logic
+- Check consistency
+- Detect contradictions
+- Fix errors before final output
+
+3. ANSWER QUALITY RULES:
+- Be correct first, fast second
+- Prefer structured clarity over long explanations
+- Avoid repetition or filler content
+- If unsure, explicitly say so
+
+4. OUTPUT STYLE:
+- Clean, direct, structured answers
+- No unnecessary storytelling
+- No step-by-step reasoning unless user requests it
+
+--------------------------------------------------
+
+PERSONALITY MODE:
+{PERSONALITIES.get(mode, "Normal")}
+
+--------------------------------------------------
+
+FINAL RULE:
+Your priority is correctness + reasoning quality above everything else.
 """
-
 # =========================
 # AI CORE
 # =========================

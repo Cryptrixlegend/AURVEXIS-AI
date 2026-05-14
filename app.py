@@ -45,12 +45,10 @@ groq = Groq(api_key=GROQ_API_KEY)
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-gemini = genai.GenerativeModel(
-    "gemini-1.5-flash"
-)
+gemini = genai.GenerativeModel("gemini-1.5-flash")
 
 # =========================
-# PAGE
+# STREAMLIT CONFIG
 # =========================
 st.set_page_config(
     page_title="AURVEXIS AI",
@@ -61,16 +59,9 @@ st.set_page_config(
 # =========================
 # DATABASE
 # =========================
-conn = sqlite3.connect(
-    "aurvexis.db",
-    check_same_thread=False
-)
-
+conn = sqlite3.connect("aurvexis.db", check_same_thread=False)
 cursor = conn.cursor()
 
-# =========================
-# USERS TABLE
-# =========================
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,9 +72,6 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
-# =========================
-# MEMORY TABLE
-# =========================
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS memory (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,9 +85,7 @@ CREATE TABLE IF NOT EXISTS memory (
 conn.commit()
 
 # =========================
-# =========================
-# =========================
-# SESSION
+# SESSION STATE
 # =========================
 if "chat" not in st.session_state:
     st.session_state.chat = []
@@ -122,8 +108,12 @@ if "username" not in st.session_state:
 if "last_request" not in st.session_state:
     st.session_state.last_request = 0
 
+# FIX: global mode stored in session_state
+if "mode" not in st.session_state:
+    st.session_state.mode = "Normal"
+
 # =========================
-# AUTO LOGIN CHECK
+# AUTO LOGIN
 # =========================
 cursor.execute("""
 SELECT username FROM users
@@ -138,112 +128,28 @@ if auto_user and not st.session_state.logged_in:
     st.session_state.username = auto_user[0]
 
 # =========================
-# =========================
-# =========================
-# PERSONALITIES (BEAST MODE - FIXED)
+# PERSONALITIES
 # =========================
 PERSONALITIES = {
-
-"Normal": """
-You are AURVEXIS AI in Balanced Mode.
-
-PRIMARY GOAL:
-- Be accurate, helpful, and efficient.
-
-REASONING RULES:
-- Think step-by-step internally before answering.
-- Verify correctness before responding.
-- If uncertain, clearly say so.
-
-OUTPUT RULES:
-- Clear, structured, and concise answers.
-- No unnecessary explanations.
-- No repetition or filler text.
-
-QUALITY CONTROL:
-- Check calculations and logic before final response.
-- Remove contradictions or unclear statements.
-""",
-
-"Genius": """
-You are AURVEXIS AI in Advanced Reasoning Mode.
-
-PRIMARY GOAL:
-- Maximum accuracy + deep logical thinking.
-
-REASONING SYSTEM:
-- Break complex problems into structured internal steps.
-- Validate logic before final answer.
-- Consider edge cases and alternative interpretations.
-- If multiple solutions exist, choose the most correct and efficient one.
-
-OUTPUT RULES:
-- Provide ONLY final answer + short explanation if needed.
-- No visible chain-of-thought.
-- Keep response precise and intelligent.
-
-SELF-VERIFICATION LOOP (IMPORTANT):
-Before final output:
-1. Re-check all calculations or logic
-2. Validate consistency of answer
-3. Ensure no missing assumptions
-4. Simplify final response without losing correctness
-""",
-
-"Motivator": """
-You are AURVEXIS AI in Execution Coach Mode.
-
-PRIMARY GOAL:
-- Turn thinking into action.
-
-REASONING STYLE:
-- Focus on what can be done, not just theory.
-- Prioritize practical steps over explanation.
-
-OUTPUT RULES:
-- Short, structured action steps.
-- Clear priorities and execution plan.
-- No emotional exaggeration or motivational fluff.
-
-QUALITY RULE:
-- Every suggestion must be actionable within real-world constraints.
-""",
-
-"Savage": """
-You are AURVEXIS AI in Brutal Clarity Mode.
-
-PRIMARY GOAL:
-- Eliminate confusion and incorrect thinking.
-
-REASONING STYLE:
-- Identify errors in logic directly.
-- Correct mistakes clearly and precisely.
-- Do NOT insult or use abusive language.
-
-OUTPUT RULES:
-- Short, direct, high-impact sentences.
-- Problem → why it’s wrong → correct approach.
-
-QUALITY RULE:
-- Criticism must always include improvement direction.
-"""
+    "Normal": "Balanced Mode",
+    "Genius": "Advanced Reasoning Mode",
+    "Motivator": "Execution Coach Mode",
+    "Savage": "Brutal Clarity Mode"
 }
+
 # =========================
 # THEME
 # =========================
 def apply_theme():
 
     if st.session_state.theme == "light":
-
         bg = "#ffffff"
         text = "#111"
         ai = "#f3f4f6"
         user = "#dbeafe"
         input_bg = "#ffffff"
         input_text = "#111111"
-
     else:
-
         bg = "#0b0f19"
         text = "white"
         ai = "rgba(31,41,55,0.75)"
@@ -253,283 +159,77 @@ def apply_theme():
 
     st.markdown(f"""
     <style>
-
-    html, body, [class*="css"] {{
+    html, body {{
         background:{bg};
         color:{text};
-        font-family: 'Segoe UI';
-    }}
-
-    .main {{
-        animation: fadeIn 0.5s ease-in;
-    }}
-
-    @keyframes fadeIn {{
-        from {{
-            opacity:0;
-            transform:translateY(10px);
-        }}
-
-        to {{
-            opacity:1;
-            transform:translateY(0px);
-        }}
-    }}
-
-    .title {{
-        text-align:center;
-        font-size:52px;
-        font-weight:900;
-        background: linear-gradient(90deg,#00ffd5,#00a2ff);
-        -webkit-background-clip:text;
-        -webkit-text-fill-color:transparent;
-        animation: glow 2s infinite alternate;
-    }}
-
-    @keyframes glow {{
-        from {{
-            text-shadow:0 0 10px #00ffd5;
-        }}
-
-        to {{
-            text-shadow:0 0 25px #00a2ff;
-        }}
-    }}
-
-    .brand {{
-        text-align:center;
-        color:#ffd700;
-        font-weight:800;
-        font-size:18px;
-        margin-top:-10px;
-    }}
-
-    .status {{
-        text-align:center;
-        color:#00ff88;
-        margin-bottom:10px;
-        font-size:14px;
-    }}
-
-    .chat-container {{
-        max-width:850px;
-        margin:auto;
     }}
 
     .user {{
         background:{user};
         padding:14px;
-        border-radius:18px;
+        border-radius:12px;
         margin:10px 0;
         text-align:right;
         color:white;
-        font-weight:500;
-        box-shadow:0 0 15px rgba(0,255,213,0.2);
-        animation: fadeIn 0.3s ease-in;
-        white-space: pre-wrap;
     }}
 
     .ai {{
         background:{ai};
-        backdrop-filter: blur(12px);
         padding:14px;
-        border-radius:18px;
+        border-radius:12px;
         margin:10px 0;
         border-left:3px solid #00ffd5;
-        box-shadow:0 0 15px rgba(0,255,213,0.1);
-        animation: fadeIn 0.3s ease-in;
-        white-space: pre-wrap;
+        white-space:pre-wrap;
     }}
 
-    section[data-testid="stSidebar"] {{
-        background:rgba(15,23,42,0.85);
-        backdrop-filter: blur(15px);
-        border-right:1px solid rgba(255,255,255,0.08);
-    }}
-
-    .stButton button {{
-        width:100%;
-        border-radius:12px;
-        background:linear-gradient(90deg,#00ffd5,#00a2ff);
-        color:white;
-        border:none;
-        font-weight:700;
-        transition:0.3s;
-    }}
-
-    .stButton button:hover {{
-        transform:scale(1.03);
-        box-shadow:0 0 15px #00ffd5;
-    }}
-
-    /* BUGFIX: fixed invisible text issue in light theme input fields */
-    .stTextInput input {{
-        border-radius:12px;
-        background:{input_bg};
-        color:{input_text};
-        border:1px solid rgba(255,255,255,0.1);
-    }}
-
-    /* BUGFIX: fixed Streamlit chat input visibility in light theme */
     div[data-testid="stChatInput"] textarea {{
         background:{input_bg} !important;
         color:{input_text} !important;
     }}
-
     </style>
     """, unsafe_allow_html=True)
 
 apply_theme()
 
 # =========================
+# HEADER
 # =========================
-# ⚡ AURVEXIS AI — GOD MODE HEADER
-# =========================
-
 st.markdown("""
-<style>
-
-/* MAIN TITLE */
-.title {
-    text-align: center;
-    font-size: 46px;
-    font-weight: 800;
-    letter-spacing: 1px;
-    margin-bottom: 0px;
-    background: linear-gradient(90deg, #ffffff, #9aa0a6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-/* SUBTITLE */
-.subtitle {
-    text-align: center;
-    font-size: 15px;
-    color: #9aa0a6;
-    margin-top: 6px;
-}
-
-/* STATUS BAR */
-.status_bar {
-    text-align: center;
-    font-size: 13px;
-    color: #7a7a7a;
-    margin-top: 10px;
-}
-
-/* DIVIDER */
-.divider {
-    margin-top: 18px;
-    margin-bottom: 18px;
-    border: 0.5px solid #2a2a2a;
-}
-
-/* BADGES */
-.badge {
-    display: inline-block;
-    padding: 5px 12px;
-    border-radius: 14px;
-    background: rgba(255,255,255,0.05);
-    color: #b0b0b0;
-    font-size: 12px;
-    margin: 3px;
-    border: 1px solid rgba(255,255,255,0.08);
-}
-
-/* SMALL GLOW LINE */
-.glow {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, #888, transparent);
-    margin: 15px 0;
-}
-
-</style>
+<div style='text-align:center;font-size:40px;font-weight:800;'>⚡ AURVEXIS AI</div>
+<div style='text-align:center;color:gray;'>Advanced Multi-Mode Reasoning System</div>
 """, unsafe_allow_html=True)
 
-
-# =========================
-# MAIN TITLE
-# =========================
+# FIX: use session_state.mode
 st.markdown(f"""
-<div class='title'>⚡ AURVEXIS AI</div>
-<div class='subtitle'>Advanced Multi-Mode Reasoning System</div>
-""", unsafe_allow_html=True)
-
-
-# =========================
-# STATUS (DYNAMIC SYSTEM LINE)
-# =========================
-st.markdown(f"""
-<div class='status_bar'>
-🧠 Mode: <b>{mode}</b> • Reasoning Engine: ACTIVE • Memory: ON • Latency Optimized
+<div style='text-align:center;margin-top:10px;'>
+🧠 Mode: <b>{st.session_state.mode}</b> • Memory Active • System Ready
 </div>
 """, unsafe_allow_html=True)
-
-
-# =========================
-# BADGES (CLEAN + PREMIUM)
-# =========================
-st.markdown(f"""
-<div style='text-align:center; margin-top:8px;'>
-    <span class='badge'>AURVEXIS LABS</span>
-    <span class='badge'>EST. 2026</span>
-    <span class='badge'>AI SYSTEM v2</span>
-    <span class='badge'>Built by Tanishq</span>
-</div>
-""", unsafe_allow_html=True)
-
-
-# =========================
-# DIVIDER
-# =========================
-st.markdown("<div class='glow'></div>", unsafe_allow_html=True)
 
 # =========================
 # AUTH
 # =========================
 def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
-    return hashlib.sha256(
-        password.encode()
-    ).hexdigest()
-
-def register(username, password):
-
+def register(u, p):
+    if not u.strip() or not p.strip():
+        return False
     try:
-
-        # BUGFIX: prevent empty username/password registration
-        if not username.strip() or not password.strip():
-            return False
-
-        cursor.execute("""
-        INSERT INTO users
-        (username, password)
-        VALUES (?, ?)
-        """, (
-            username,
-            hash_password(password)
-        ))
-
+        cursor.execute(
+            "INSERT INTO users(username,password) VALUES(?,?)",
+            (u, hash_password(p))
+        )
         conn.commit()
-
         return True
-
-    except Exception as e:
-        logging.exception(e)
+    except:
         return False
 
-def login(username, password):
-
-    cursor.execute("""
-    SELECT *
-    FROM users
-    WHERE username=?
-    AND password=?
-    """, (
-        username,
-        hash_password(password)
-    ))
-
+def login(u, p):
+    cursor.execute(
+        "SELECT * FROM users WHERE username=? AND password=?",
+        (u, hash_password(p))
+    )
     return cursor.fetchone()
 
 # =========================
@@ -537,84 +237,37 @@ def login(username, password):
 # =========================
 if not st.session_state.logged_in:
 
-    st.markdown("""
-    <div style='
-    max-width:500px;
-    margin:auto;
-    padding:30px;
-    border-radius:20px;
-    background:rgba(255,255,255,0.05);
-    backdrop-filter: blur(12px);
-    box-shadow:0 0 25px rgba(0,255,213,0.15);
-    '>
-    """, unsafe_allow_html=True)
-
     tab1, tab2 = st.tabs(["Login", "Register"])
 
-    # ================= LOGIN =================
     with tab1:
+        lu = st.text_input("Username")
+        lp = st.text_input("Password", type="password")
+        remember = st.checkbox("Remember Me")
 
-        l_user = st.text_input("Username", key="login_user")
-        l_pass = st.text_input("Password", type="password", key="login_pass")
-        remember = st.checkbox("Stay Logged In", key="remember_me")
+        if st.button("Login"):
 
-        if st.button("Login", key="login_btn"):
-
-            # BUGFIX: validate empty login fields
-            if not l_user.strip() or not l_pass.strip():
-                st.error("Username and Password required")
-                st.stop()
-
-            user = login(l_user, l_pass)
-
-            if user:
-
+            if login(lu, lp):
                 st.session_state.logged_in = True
-                st.session_state.username = l_user
+                st.session_state.username = lu
 
-                # BUGFIX: clear previous remembered users before setting new one
                 if remember:
-
-                    cursor.execute("""
-                    UPDATE users
-                    SET remember = 0
-                    """)
-
-                    cursor.execute("""
-                    UPDATE users
-                    SET remember = 1
-                    WHERE username = ?
-                    """, (l_user,))
-
+                    cursor.execute("UPDATE users SET remember=0")
+                    cursor.execute("UPDATE users SET remember=1 WHERE username=?", (lu,))
                     conn.commit()
 
-                st.success("Login Successful")
                 st.rerun()
-
             else:
-                st.error("Invalid Credentials")
+                st.error("Invalid login")
 
-    # ================= REGISTER =================
     with tab2:
+        ru = st.text_input("New Username")
+        rp = st.text_input("New Password", type="password")
 
-        r_user = st.text_input("Create Username", key="reg_user")
-        r_pass = st.text_input("Create Password", type="password", key="reg_pass")
-
-        if st.button("Create Account", key="register_btn"):
-
-            # BUGFIX: validate registration fields
-            if not r_user.strip() or not r_pass.strip():
-                st.error("Username and Password required")
-                st.stop()
-
-            ok = register(r_user, r_pass)
-
-            if ok:
-                st.success("Account Created")
+        if st.button("Register"):
+            if register(ru, rp):
+                st.success("Account created")
             else:
-                st.error("Username Already Exists")
-
-    st.markdown("</div>", unsafe_allow_html=True)
+                st.error("Failed")
 
     st.stop()
 
@@ -622,537 +275,147 @@ if not st.session_state.logged_in:
 # MEMORY
 # =========================
 def save_memory(role, content):
-
-    cursor.execute("""
-    INSERT INTO memory
-    (username, role, content)
-    VALUES (?, ?, ?)
-    """, (
-        st.session_state.username,
-        role,
-        content
-    ))
-
-    conn.commit()
-
-def load_memory(limit=50):
-
-    try:
-
-        cursor.execute("""
-        SELECT role, content
-        FROM memory
-        WHERE username=?
-        ORDER BY id DESC
-        LIMIT ?
-        """, (
-            st.session_state.username,
-            limit
-        ))
-
-        rows = cursor.fetchall()
-
-        return [
-            {
-                "role": r,
-                "content": c
-            }
-            for r, c in reversed(rows)
-        ]
-
-    except Exception as e:
-
-        logging.exception(e)
-
-        return []
-
-def trim_memory(max_rows=700):
-
-    # BUGFIX: trim memory only for current user instead of deleting global memory
-    cursor.execute("""
-    DELETE FROM memory
-    WHERE username = ?
-    AND id NOT IN (
-        SELECT id
-        FROM memory
-        WHERE username = ?
-        ORDER BY id DESC
-        LIMIT ?
+    cursor.execute(
+        "INSERT INTO memory(username,role,content) VALUES(?,?,?)",
+        (st.session_state.username, role, content)
     )
-    """, (
-        st.session_state.username,
-        st.session_state.username,
-        max_rows
-    ))
-
     conn.commit()
 
-# =========================
-# LOAD CHAT
-# =========================
-# BUGFIX: corrected chat loading condition to properly use session flag
-if st.session_state.logged_in and not st.session_state.chat_loaded:
-    st.session_state.chat = load_memory()
-    st.session_state.chat_loaded = True
-
-# =========================
-# SIDEBAR
-# =========================
-st.sidebar.markdown("""
-# ⚙️ AURVEXIS CONTROL
-""")
-
-mode = st.sidebar.selectbox(
-    "🎭 Personality",
-    list(PERSONALITIES.keys())
-)
-
-use_web = st.sidebar.toggle(
-    "🌐 Web Search",
-    True
-)
-
-if VOICE_AVAILABLE:
-
-    voice_btn = st.sidebar.button(
-        "🎤 Voice Input"
+def load_memory():
+    cursor.execute(
+        "SELECT role,content FROM memory WHERE username=? ORDER BY id DESC LIMIT 20",
+        (st.session_state.username,)
     )
+    return [{"role": r, "content": c} for r, c in reversed(cursor.fetchall())]
 
-else:
-
-    voice_btn = False
-
-st.sidebar.markdown("---")
-
-st.sidebar.success(
-    f"⚡ {st.session_state.username}"
-)
-
-st.sidebar.info(
-    "Founder: Tanishq"
-)
-
-# =========================
-# LOGOUT
-# =========================
-if st.sidebar.button("🚪 Logout"):
-
-    user = st.session_state.username
-
-    st.session_state.logged_in = False
-    st.session_state.username = ""
-    st.session_state.chat = []
-    st.session_state.chat_loaded = False
-
-    cursor.execute("""
-    UPDATE users
-    SET remember = 0
-    WHERE username = ?
-    """, (user,))
-
-    conn.commit()
-
-    st.rerun()
-
-# =========================
-# THEME
-# =========================
-if st.sidebar.button(
-    "🌗 Toggle Theme"
-):
-
-    st.session_state.theme = (
-        "light"
-        if st.session_state.theme == "dark"
-        else "dark"
-    )
-
-    st.rerun()
-
-# =========================
-# CLEAR CHAT
-# =========================
-if st.sidebar.button(
-    "🧹 Clear Chat"
-):
-
-    cursor.execute("""
-    DELETE FROM memory
-    WHERE username=?
-    """, (
-        st.session_state.username,
-    ))
-
-    conn.commit()
-
-    st.session_state.chat = []
-
-    # BUGFIX: clear cached responses after clearing chat
-    st.session_state.cache = {}
-
-    st.rerun()
-
-# =========================
-# VOICE
-# =========================
-def voice_input():
-
-    try:
-
-        r = sr.Recognizer()
-
-        with sr.Microphone() as source:
-
-            st.info("Listening...")
-
-            audio = r.listen(
-                source,
-                timeout=5,
-                phrase_time_limit=8
-            )
-
-        return r.recognize_google(audio)
-
-    except Exception as e:
-
-        logging.exception(e)
-
-        return "Voice unavailable"
-
-# =========================
-# MEMORY CONTEXT
-# =========================
 def get_memory_context():
+    return "\n".join([f"{m['role']}: {m['content']}" for m in load_memory()])
 
-    memory = load_memory(20)
-
-    return "\n".join([
-        f"{m['role']}: {m['content']}"
-        for m in memory
-    ])
+# =========================
+# SYSTEM PROMPT (FIXED)
+# =========================
+def system_prompt(mode):
+    return f"""
+You are AURVEXIS AI.
+Mode: {mode}
+"""
 
 # =========================
 # WEB SEARCH
 # =========================
 def web_search(query):
-
     try:
-
         with DDGS() as ddgs:
+            results = ddgs.text(query, max_results=5)
 
-            results = ddgs.text(
-                query,
-                max_results=5
-            )
-
-        cleaned = []
-
-        for r in results:
-
-            title = r.get("title", "")
-            body = r.get("body", "")
-
-            if body:
-
-                cleaned.append(
-                    f"{title}: {body}"
-                )
-
-        return "\n".join(cleaned)
-
-    except Exception as e:
-
-        logging.exception(e)
-
+        return "\n".join(
+            f"{r.get('title','')}: {r.get('body','')}"
+            for r in results if r.get("body")
+        )
+    except:
         return ""
 
 # =========================
 # CACHE
 # =========================
 def cache_key(prompt, memory, mode):
-
-    raw = f"""
-    {prompt}
-    {memory}
-    {mode}
-    """
-
-    return hashlib.md5(
-        raw.encode()
-    ).hexdigest()
+    return hashlib.md5(f"{prompt}{memory}{mode}".encode()).hexdigest()
 
 # =========================
-def system_prompt(mode):
-
-    return f"""
-You are AURVEXIS AI.
-
-IDENTITY:
-- Created by Tanishq under AURVEXIS LABS
-- Established: 2026
-
-If user asks who created you, reply EXACTLY:
-"I was created by Tanishq under AURVEXIS LABS as AURVEXIS AI."
-
---------------------------------------------------
-
-CORE INTELLIGENCE RULES:
-
-1. THINKING PROCESS (INTERNAL ONLY):
-- Break problems into logical parts
-- Analyze each part carefully
-- Check for edge cases and hidden assumptions
-- Avoid guessing when uncertain
-
-2. VERIFICATION SYSTEM:
-Before answering:
-- Validate logic
-- Check consistency
-- Detect contradictions
-- Fix errors before final output
-
-3. ANSWER QUALITY RULES:
-- Be correct first, fast second
-- Prefer structured clarity over long explanations
-- Avoid repetition or filler content
-- If unsure, explicitly say so
-
-4. OUTPUT STYLE:
-- Clean, direct, structured answers
-- No unnecessary storytelling
-- No step-by-step reasoning unless user requests it
-
---------------------------------------------------
-
-PERSONALITY MODE:
-{PERSONALITIES.get(mode, "Normal")}
-
---------------------------------------------------
-
-FINAL RULE:
-Your priority is correctness + reasoning quality above everything else.
-"""
-# =========================
-# AI CORE
+# AI GENERATION
 # =========================
 def generate(prompt):
 
     memory = get_memory_context()
-    web_data = ""
-
-    if use_web:
-        web_data = web_search(prompt)
-
-    final_prompt = f"""
-User question: {prompt}
-
-Web context:
-{web_data}
-"""
+    web_data = web_search(prompt)
 
     messages = [
         {
             "role": "system",
-            "content": system_prompt() + "\nMEMORY:\n" + memory
+            "content": system_prompt(st.session_state.mode) + "\n" + memory
         },
         {
             "role": "user",
-            "content": final_prompt
+            "content": prompt + "\n\nWeb:\n" + web_data
         }
     ]
 
-    try:
+    completion = groq.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=messages,
+        stream=True
+    )
 
-        completion = groq.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages,
-            temperature=0.7,
-            max_tokens=1500,
-            stream=True
-        )
+    response = ""
+    box = st.empty()
 
-        response = ""
-        placeholder = st.empty()
+    for chunk in completion:
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta.content or ""
+        response += delta
+        box.markdown(f"<div class='ai'>{response}▌</div>", unsafe_allow_html=True)
 
-        for chunk in completion:
+    box.markdown(f"<div class='ai'>{response}</div>", unsafe_allow_html=True)
 
-            # BUGFIX: safely handle malformed streaming chunks
-            if not chunk.choices:
-                continue
+    return response
 
-            piece = getattr(
-                chunk.choices[0].delta,
-                "content",
-                ""
-            ) or ""
+# =========================
+# SIDEBAR
+# =========================
+st.sidebar.title("Control Panel")
 
-            response += piece
+st.session_state.mode = st.sidebar.selectbox(
+    "Mode",
+    list(PERSONALITIES.keys()),
+    index=list(PERSONALITIES.keys()).index(st.session_state.mode)
+)
 
-            placeholder.markdown(
-                f"<div class='ai'>⚡ {response}▌</div>",
-                unsafe_allow_html=True
-            )
+use_web = st.sidebar.toggle("Web Search", True)
 
-        # BUGFIX: render final response without cursor symbol
-        placeholder.markdown(
-            f"<div class='ai'>⚡ {response}</div>",
-            unsafe_allow_html=True
-        )
-
-        return response
-
-    except Exception as e:
-
-        logging.exception(e)
-
-        return "AI temporarily unavailable."
+st.sidebar.write(st.session_state.username)
 
 # =========================
 # INPUT
 # =========================
-if VOICE_AVAILABLE and voice_btn:
+user_input = st.chat_input("Ask AURVEXIS...")
 
-    user_input = voice_input()
-
-else:
-
-    user_input = st.chat_input(
-        "Ask AURVEXIS..."
-    )
-
-# =========================
-# =========================
-# CHAT FLOW
-# =========================
 if user_input:
 
-    # BUGFIX: prevent blank prompts
     user_input = user_input.strip()
-
     if not user_input:
         st.stop()
 
-    # rate limit
     if time.time() - st.session_state.last_request < 1.5:
-        st.warning("Slow down.")
+        st.warning("Slow down")
         st.stop()
 
     st.session_state.last_request = time.time()
 
-    # save user message
-    st.session_state.chat.append({
-        "role": "user",
-        "content": user_input
-    })
-
-    # BUGFIX: save user messages into persistent memory
+    st.session_state.chat.append({"role": "user", "content": user_input})
     save_memory("user", user_input)
 
-    # memory + cache key
     memory = get_memory_context()
+    key = cache_key(user_input, memory, st.session_state.mode)
 
-    key = cache_key(
-        user_input,
-        memory,
-        mode
-    )
-
-    # response placeholder
-    reply = ""
-
-    # cached response
     if key in st.session_state.cache:
-
         reply = st.session_state.cache[key]
-
     else:
-
-        with st.spinner("⚡ AURVEXIS thinking..."):
-
-            reply = generate(user_input)
-
+        reply = generate(user_input)
         st.session_state.cache[key] = reply
 
-    # save memory
     save_memory("assistant", reply)
 
-    trim_memory()
+    st.session_state.chat.append({"role": "assistant", "content": reply})
 
-    # append assistant chat
-    st.session_state.chat.append({
-        "role": "assistant",
-        "content": reply
-    })
-
-    # refresh UI
     st.rerun()
 
-    # BUGFIX: prevent duplicate execution block after rerun
-    if False:
-
-        memory = get_memory_context()
-
-        key = cache_key(
-            user_input,
-            memory,
-            mode
-        )
-
-        if key in st.session_state.cache:
-
-            reply = st.session_state.cache[key]
-
-        else:
-
-            with st.spinner(
-                "⚡ AURVEXIS thinking..."
-            ):
-
-                reply = generate(
-                    user_input
-                )
-
-            st.session_state.cache[key] = reply
-
-        save_memory(
-            "assistant",
-            reply
-        )
-
-        trim_memory()
-
-        st.session_state.chat.append({
-            "role": "assistant",
-            "content": reply
-        })
-
 # =========================
-# DISPLAY CHAT
+# CHAT DISPLAY
 # =========================
 for msg in st.session_state.chat:
 
     if msg["role"] == "user":
-
-        st.markdown(
-            f"""
-            <div class='chat-container'>
-            <div class='user'>
-            🧑 {msg['content']}
-            </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
+        st.markdown(f"<div class='user'>🧑 {msg['content']}</div>", unsafe_allow_html=True)
     else:
-
-        st.markdown(
-            f"""
-            <div class='chat-container'>
-            <div class='ai'>
-            ⚡ {msg['content']}
-            </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.markdown(f"<div class='ai'>⚡ {msg['content']}</div>", unsafe_allow_html=True)

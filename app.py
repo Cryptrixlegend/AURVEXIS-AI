@@ -200,10 +200,6 @@ def apply_theme():
         font-size:15px;
     }}
 
-    /* =========================
-       MODE BOX (UPGRADED FIX)
-    ========================= */
-
     .mode-box {{
         margin-top:18px;
         display:inline-block;
@@ -320,6 +316,10 @@ def apply_theme():
     """, unsafe_allow_html=True)
 
 apply_theme()
+
+# BUGFIX: Header was never rendered, causing hero-sub and mode-box not to appear consistently
+render_header()
+
 # =========================
 # HEADER
 # =========================
@@ -333,16 +333,17 @@ def render_header():
         </div>
 
         <div class='mode-box'>
-            🧠 <span style="color:#00ffd5;">{st.session_state.mode} MODE</span>
+            🧠 <span style="color:#00ffd5;">
+                {st.session_state.get("mode", "Normal")} MODE
+            </span>
             • Founder: <span style="color:#ffffff;">Tanishq</span>
             • <span style="color:#00ffd5;">AURVEXIS LABS ESTD.2026</span>
-            • Web: <span style="color:#00ffd5;">{"ON" if st.session_state.use_web else "OFF"}</span>
+            • Web: <span style="color:#00ffd5;">
+                {"ON" if st.session_state.get("use_web", True) else "OFF"}
+            </span>
         </div>
     </div>
     """, unsafe_allow_html=True)
-
-
-render_header()
 
 # =========================
 # AUTH

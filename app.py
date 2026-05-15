@@ -135,6 +135,7 @@ if auto_user and not st.session_state.logged_in:
     st.session_state.username = auto_user[0]
 
 # =========================
+# =========================
 # PERSONALITIES
 # =========================
 PERSONALITIES = {
@@ -187,6 +188,11 @@ PERSONALITIES = {
             "cold logical responses"
         ]
     }
+}
+
+# =========================
+# THEME
+# =========================
 # =========================
 # THEME
 # =========================

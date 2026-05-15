@@ -10,6 +10,17 @@ from groq import Groq
 from duckduckgo_search import DDGS
 
 # =========================
+# BUGFIX: Streamlit requires set_page_config to be the FIRST st.* call
+# FIX: Moved page config here before ANY st.* usage (critical runtime fix)
+# =========================
+st.set_page_config(
+    page_title="AURVEXIS AI",
+    page_icon="⚡",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# =========================
 # OPTIONAL VOICE
 # =========================
 try:
@@ -33,6 +44,10 @@ load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
+# =========================
+# BUGFIX: st.* calls must come AFTER set_page_config
+# FIX: Only safe now because config is already set above
+# =========================
 if not GROQ_API_KEY:
     st.error("Missing GROQ API KEY")
     st.stop()
@@ -41,16 +56,6 @@ if not GROQ_API_KEY:
 # AI CLIENT
 # =========================
 groq = Groq(api_key=GROQ_API_KEY)
-
-# =========================
-# PAGE CONFIG
-# =========================
-st.set_page_config(
-    page_title="AURVEXIS AI",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # =========================
 # DATABASE

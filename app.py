@@ -137,7 +137,6 @@ if auto_user and not st.session_state.logged_in:
 # =========================
 # PERSONALITIES
 # =========================
-
 PERSONALITIES = {
     "Normal": {
         "mode": "Balanced Intelligence Mode",

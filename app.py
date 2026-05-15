@@ -145,7 +145,8 @@ PERSONALITIES = {
 }
 
 # =========================
-# THEME
+# =========================
+# THEME (UPGRADED AURVEXIS UI)
 # =========================
 def apply_theme():
 
@@ -153,62 +154,70 @@ def apply_theme():
 
     bg = "#050816" if dark else "#f4f7fb"
     text = "#ffffff" if dark else "#111827"
-    card = "rgba(17,24,39,0.82)" if dark else "#ffffff"
-    border = "rgba(255,255,255,0.08)" if dark else "rgba(0,0,0,0.08)"
+    card = "rgba(17,24,39,0.75)" if dark else "#ffffff"
+    border = "rgba(255,255,255,0.10)" if dark else "rgba(0,0,0,0.08)"
     sidebar = "#0b1020" if dark else "#ffffff"
 
     st.markdown(f"""
     <style>
 
+    /* ================= GLOBAL ================= */
     .stApp {{
         background:
-        radial-gradient(circle at top left, rgba(0,255,213,0.08), transparent 30%),
-        radial-gradient(circle at top right, rgba(37,99,235,0.15), transparent 25%),
+        radial-gradient(circle at top left, rgba(0,255,213,0.10), transparent 35%),
+        radial-gradient(circle at top right, rgba(37,99,235,0.18), transparent 35%),
+        radial-gradient(circle at bottom, rgba(168,85,247,0.10), transparent 40%),
         {bg};
-
         color:{text};
     }}
 
     html, body, [class*="css"] {{
         color:{text};
-        font-family:Inter,sans-serif;
+        font-family: Inter, sans-serif;
     }}
 
+    /* ================= SIDEBAR ================= */
     section[data-testid="stSidebar"] {{
         background:{sidebar};
         border-right:1px solid {border};
     }}
 
+    /* ================= HERO ================= */
     .hero {{
         text-align:center;
-        padding:25px 10px 10px;
+        padding:28px 10px 10px;
     }}
 
     .hero-title {{
-        font-size:56px;
+        font-size:58px;
         font-weight:900;
         background:linear-gradient(90deg,#00ffd5,#3b82f6,#a855f7);
         -webkit-background-clip:text;
         -webkit-text-fill-color:transparent;
+        letter-spacing:1px;
     }}
 
     .hero-sub {{
         color:#9ca3af;
-        margin-top:10px;
+        margin-top:8px;
         font-size:15px;
     }}
 
+    /* ================= MODE BOX ================= */
     .mode-box {{
         margin-top:18px;
         display:inline-block;
-        padding:12px 18px;
+        padding:14px 20px;
         border-radius:18px;
-        background:rgba(255,255,255,0.05);
-        border:1px solid {border};
+        background:rgba(0,255,213,0.06);
+        border:1px solid rgba(0,255,213,0.25);
         backdrop-filter:blur(18px);
         font-weight:700;
+        font-size:14px;
+        box-shadow:0 10px 30px rgba(0,0,0,0.25);
     }}
 
+    /* ================= CHAT ================= */
     .chat-shell {{
         max-width:1050px;
         margin:auto;
@@ -226,6 +235,7 @@ def apply_theme():
         font-weight:600;
         box-shadow:0 10px 35px rgba(37,99,235,0.35);
         word-wrap:break-word;
+        animation: fadeIn 0.2s ease-in;
     }}
 
     .ai {{
@@ -239,42 +249,10 @@ def apply_theme():
         backdrop-filter:blur(18px);
         line-height:1.7;
         word-wrap:break-word;
+        animation: fadeIn 0.2s ease-in;
     }}
 
-    .typing {{
-        display:flex;
-        gap:6px;
-        margin-top:10px;
-    }}
-
-    .typing span {{
-        width:8px;
-        height:8px;
-        background:#00ffd5;
-        border-radius:50%;
-        animation:bounce 1s infinite;
-    }}
-
-    .typing span:nth-child(2) {{
-        animation-delay:0.2s;
-    }}
-
-    .typing span:nth-child(3) {{
-        animation-delay:0.4s;
-    }}
-
-    @keyframes bounce {{
-        0%,80%,100% {{
-            transform:scale(0.7);
-            opacity:0.5;
-        }}
-
-        40% {{
-            transform:scale(1.2);
-            opacity:1;
-        }}
-    }}
-
+    /* ================= INPUT ================= */
     div[data-testid="stChatInput"] {{
         position:fixed;
         bottom:14px;
@@ -285,26 +263,36 @@ def apply_theme():
     }}
 
     div[data-testid="stChatInput"] textarea {{
-        background:#111827 !important;
-        color:white !important;
+        background:{card} !important;
+        color:{text} !important;
         border-radius:18px !important;
-        border:1px solid rgba(0,255,213,0.15) !important;
+        border:1px solid rgba(0,255,213,0.20) !important;
         padding:16px !important;
     }}
 
+    /* ================= BUTTON ================= */
     .stButton button {{
         border:none !important;
         border-radius:12px !important;
         background:linear-gradient(135deg,#2563eb,#00ffd5) !important;
         color:white !important;
         font-weight:700 !important;
+        transition:0.2s ease;
+    }}
+
+    .stButton button:hover {{
+        transform:scale(1.03);
+        box-shadow:0 10px 25px rgba(0,255,213,0.25);
+    }}
+
+    /* ================= ANIMATION ================= */
+    @keyframes fadeIn {{
+        from {{ opacity:0; transform:translateY(8px); }}
+        to {{ opacity:1; transform:translateY(0); }}
     }}
 
     </style>
     """, unsafe_allow_html=True)
-
-apply_theme()
-
 # =========================
 # HEADER
 # =========================

@@ -146,7 +146,7 @@ PERSONALITIES = {
 
 # =========================
 # =========================
-# THEME (UPGRADED AURVEXIS UI)
+# THEME
 # =========================
 def apply_theme():
 
@@ -154,70 +154,69 @@ def apply_theme():
 
     bg = "#050816" if dark else "#f4f7fb"
     text = "#ffffff" if dark else "#111827"
-    card = "rgba(17,24,39,0.75)" if dark else "#ffffff"
-    border = "rgba(255,255,255,0.10)" if dark else "rgba(0,0,0,0.08)"
+    card = "rgba(17,24,39,0.82)" if dark else "#ffffff"
+    border = "rgba(255,255,255,0.08)" if dark else "rgba(0,0,0,0.08)"
     sidebar = "#0b1020" if dark else "#ffffff"
 
     st.markdown(f"""
     <style>
 
-    /* ================= GLOBAL ================= */
     .stApp {{
         background:
-        radial-gradient(circle at top left, rgba(0,255,213,0.10), transparent 35%),
-        radial-gradient(circle at top right, rgba(37,99,235,0.18), transparent 35%),
-        radial-gradient(circle at bottom, rgba(168,85,247,0.10), transparent 40%),
+        radial-gradient(circle at top left, rgba(0,255,213,0.08), transparent 30%),
+        radial-gradient(circle at top right, rgba(37,99,235,0.15), transparent 25%),
         {bg};
+
         color:{text};
     }}
 
     html, body, [class*="css"] {{
         color:{text};
-        font-family: Inter, sans-serif;
+        font-family:Inter,sans-serif;
     }}
 
-    /* ================= SIDEBAR ================= */
     section[data-testid="stSidebar"] {{
         background:{sidebar};
         border-right:1px solid {border};
     }}
 
-    /* ================= HERO ================= */
     .hero {{
         text-align:center;
-        padding:28px 10px 10px;
+        padding:25px 10px 10px;
     }}
 
     .hero-title {{
-        font-size:58px;
+        font-size:56px;
         font-weight:900;
         background:linear-gradient(90deg,#00ffd5,#3b82f6,#a855f7);
         -webkit-background-clip:text;
         -webkit-text-fill-color:transparent;
-        letter-spacing:1px;
+        text-shadow:0 0 25px rgba(0,255,213,0.15);
     }}
 
     .hero-sub {{
         color:#9ca3af;
-        margin-top:8px;
+        margin-top:10px;
         font-size:15px;
     }}
 
-    /* ================= MODE BOX ================= */
+    /* =========================
+       MODE BOX (UPGRADED FIX)
+    ========================= */
+
     .mode-box {{
         margin-top:18px;
         display:inline-block;
-        padding:14px 20px;
+        padding:12px 18px;
         border-radius:18px;
-        background:rgba(0,255,213,0.06);
+        background:rgba(0,255,213,0.08);
         border:1px solid rgba(0,255,213,0.25);
         backdrop-filter:blur(18px);
         font-weight:700;
-        font-size:14px;
-        box-shadow:0 10px 30px rgba(0,0,0,0.25);
+        color:#ffffff;
+        box-shadow:0 0 20px rgba(0,255,213,0.08);
     }}
 
-    /* ================= CHAT ================= */
     .chat-shell {{
         max-width:1050px;
         margin:auto;
@@ -235,7 +234,6 @@ def apply_theme():
         font-weight:600;
         box-shadow:0 10px 35px rgba(37,99,235,0.35);
         word-wrap:break-word;
-        animation: fadeIn 0.2s ease-in;
     }}
 
     .ai {{
@@ -249,10 +247,43 @@ def apply_theme():
         backdrop-filter:blur(18px);
         line-height:1.7;
         word-wrap:break-word;
-        animation: fadeIn 0.2s ease-in;
+        box-shadow:0 10px 30px rgba(0,0,0,0.25);
     }}
 
-    /* ================= INPUT ================= */
+    .typing {{
+        display:flex;
+        gap:6px;
+        margin-top:10px;
+    }}
+
+    .typing span {{
+        width:8px;
+        height:8px;
+        background:#00ffd5;
+        border-radius:50%;
+        animation:bounce 1s infinite;
+    }}
+
+    .typing span:nth-child(2) {{
+        animation-delay:0.2s;
+    }}
+
+    .typing span:nth-child(3) {{
+        animation-delay:0.4s;
+    }}
+
+    @keyframes bounce {{
+        0%,80%,100% {{
+            transform:scale(0.7);
+            opacity:0.5;
+        }}
+
+        40% {{
+            transform:scale(1.2);
+            opacity:1;
+        }}
+    }}
+
     div[data-testid="stChatInput"] {{
         position:fixed;
         bottom:14px;
@@ -263,14 +294,14 @@ def apply_theme():
     }}
 
     div[data-testid="stChatInput"] textarea {{
-        background:{card} !important;
-        color:{text} !important;
+        background:#111827 !important;
+        color:white !important;
         border-radius:18px !important;
-        border:1px solid rgba(0,255,213,0.20) !important;
+        border:1px solid rgba(0,255,213,0.2) !important;
         padding:16px !important;
+        outline:none !important;
     }}
 
-    /* ================= BUTTON ================= */
     .stButton button {{
         border:none !important;
         border-radius:12px !important;
@@ -281,38 +312,31 @@ def apply_theme():
     }}
 
     .stButton button:hover {{
-        transform:scale(1.03);
-        box-shadow:0 10px 25px rgba(0,255,213,0.25);
-    }}
-
-    /* ================= ANIMATION ================= */
-    @keyframes fadeIn {{
-        from {{ opacity:0; transform:translateY(8px); }}
-        to {{ opacity:1; transform:translateY(0); }}
+        transform:translateY(-2px);
+        box-shadow:0 0 20px rgba(0,255,213,0.25);
     }}
 
     </style>
     """, unsafe_allow_html=True)
+
+apply_theme()
 # =========================
 # HEADER
 # =========================
 st.markdown(f"""
-<div class="hero">
+<div class='hero'>
+    <div class='hero-title'>⚡ AURVEXIS AI</div>
 
-    <div class="hero-title">
-        ⚡ AURVEXIS AI
-    </div>
-
-    <div class="hero-sub">
+    <div class='hero-sub'>
         THINK BEYOND LIMITS • AURVEXIS LABS
     </div>
 
-    <div class="mode-box">
+    <div class='mode-box'>
         🧠 <span style="color:#00ffd5;">{st.session_state.mode} MODE</span>
         • Founder: <span style="color:#ffffff;">Tanishq</span>
         • <span style="color:#00ffd5;">AURVEXIS LABS ESTD.2026</span>
+        • Web: <span style="color:#00ffd5;">{"ON" if st.session_state.use_web else "OFF"}</span>
     </div>
-
 </div>
 """, unsafe_allow_html=True)
 

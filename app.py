@@ -323,22 +323,26 @@ apply_theme()
 # =========================
 # HEADER
 # =========================
-st.markdown(f"""
-<div class='hero'>
-    <div class='hero-title'>⚡ AURVEXIS AI</div>
+def render_header():
+    st.markdown(f"""
+    <div class='hero'>
+        <div class='hero-title'>⚡ AURVEXIS AI</div>
 
-    <div class='hero-sub'>
-        THINK BEYOND LIMITS • AURVEXIS LABS
-    </div>
+        <div class='hero-sub'>
+            THINK BEYOND LIMITS • AURVEXIS LABS
+        </div>
 
-    <div class='mode-box'>
-        🧠 <span style="color:#00ffd5;">{st.session_state.mode} MODE</span>
-        • Founder: <span style="color:#ffffff;">Tanishq</span>
-        • <span style="color:#00ffd5;">AURVEXIS LABS ESTD.2026</span>
-        • Web: <span style="color:#00ffd5;">{"ON" if st.session_state.use_web else "OFF"}</span>
+        <div class='mode-box'>
+            🧠 <span style="color:#00ffd5;">{st.session_state.mode} MODE</span>
+            • Founder: <span style="color:#ffffff;">Tanishq</span>
+            • <span style="color:#00ffd5;">AURVEXIS LABS ESTD.2026</span>
+            • Web: <span style="color:#00ffd5;">{"ON" if st.session_state.use_web else "OFF"}</span>
+        </div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
+
+render_header()
 
 # =========================
 # AUTH

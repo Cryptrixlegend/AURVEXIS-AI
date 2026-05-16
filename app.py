@@ -1,3 +1,9 @@
+# =========================
+# AURVEXIS AI
+# FULLY FIXED PREMIUM VERSION
+# AURVEXIS LABS • FOUNDED BY TANISHQ • ESTD.2026
+# =========================
+
 import streamlit as st
 import os
 import time
@@ -10,8 +16,7 @@ from groq import Groq
 from duckduckgo_search import DDGS
 
 # =========================
-# BUGFIX: Streamlit requires set_page_config to be the FIRST st.* call
-# FIX: Moved page config here before ANY st.* usage (critical runtime fix)
+# BUGFIX: set_page_config MUST be first Streamlit call
 # =========================
 st.set_page_config(
     page_title="AURVEXIS AI",
@@ -44,12 +49,8 @@ load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# =========================
-# BUGFIX: st.* calls must come AFTER set_page_config
-# FIX: Only safe now because config is already set above
-# =========================
 if not GROQ_API_KEY:
-    st.error("Missing GROQ API KEY")
+    st.error("Missing GROQ_API_KEY in .env")
     st.stop()
 
 # =========================
@@ -60,19 +61,22 @@ groq = Groq(api_key=GROQ_API_KEY)
 # =========================
 # DATABASE
 # =========================
-conn = sqlite3.connect("aurvexis.db", check_same_thread=False)
+conn = sqlite3.connect(
+    "aurvexis.db",
+    check_same_thread=False
+)
+
 cursor = conn.cursor()
 
 # =========================
-# BUGFIX: Improve DB stability & performance
+# BUGFIX: Better SQLite performance
 # =========================
 cursor.execute("PRAGMA journal_mode=WAL")
 cursor.execute("PRAGMA synchronous=NORMAL")
 cursor.execute("PRAGMA temp_store=MEMORY")
-cursor.execute("PRAGMA foreign_keys=ON")
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS users(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE,
     password TEXT,
@@ -81,7 +85,7 @@ CREATE TABLE IF NOT EXISTS users (
 """)
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS memory (
+CREATE TABLE IF NOT EXISTS memory(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT,
     role TEXT,
@@ -92,24 +96,22 @@ CREATE TABLE IF NOT EXISTS memory (
 conn.commit()
 
 # =========================
-# SESSION
+# SESSION STATE
 # =========================
 defaults = {
     "chat": [],
-    "chat_loaded": False,
-    "theme": "dark",
-    "cache": {},
     "logged_in": False,
     "username": "",
+    "theme": "dark",
     "mode": "Normal",
     "use_web": True,
+    "chat_loaded": False,
     "last_request": 0,
-    "typing": False,
-    "voice_text": "",
-    "premium_glow": True
+    "voice_text": ""
 }
 
 for key, value in defaults.items():
+
     if key not in st.session_state:
         st.session_state[key] = value
 
@@ -117,62 +119,73 @@ for key, value in defaults.items():
 # AUTO LOGIN
 # =========================
 cursor.execute("""
-SELECT username FROM users
-WHERE remember = 1
+SELECT username
+FROM users
+WHERE remember=1
 LIMIT 1
 """)
 
-auto_user = cursor.fetchone()
+auto = cursor.fetchone()
 
-if auto_user and not st.session_state.logged_in:
+if auto and not st.session_state.logged_in:
     st.session_state.logged_in = True
-    st.session_state.username = auto_user[0]
+    st.session_state.username = auto[0]
 
 # =========================
 # PERSONALITIES
 # =========================
 PERSONALITIES = {
     "Normal": [
-        "clear reasoning",
-        "accurate answers",
-        "adaptive tone"
+        "balanced",
+        "intelligent",
+        "clean responses"
     ],
+
     "Genius": [
+        "high IQ",
         "deep analysis",
-        "high IQ reasoning",
-        "precision responses"
+        "advanced reasoning"
     ],
+
+    "Savage": [
+        "direct",
+        "cold logic",
+        "brutal honesty"
+    ],
+
     "Motivator": [
         "high energy",
-        "discipline focused",
-        "confidence boosting"
-    ],
-    "Savage": [
-        "brutal truth",
-        "direct answers",
-        "cold logic"
+        "discipline",
+        "confidence"
     ]
 }
 
 # =========================
-# THEME
+# PREMIUM THEME
 # =========================
 def apply_theme():
 
     dark = st.session_state.theme == "dark"
 
-    bg = "#030712" if dark else "#edf2ff"
-    text = "#ffffff" if dark else "#111827"
-    card = "rgba(15,23,42,0.72)" if dark else "rgba(255,255,255,0.95)"
-    border = "rgba(255,255,255,0.08)" if dark else "rgba(0,0,0,0.08)"
-    sidebar = "#020617" if dark else "#ffffff"
+    bg = "#020617" if dark else "#f8fafc"
+
+    text = "#ffffff" if dark else "#0f172a"
+
+    card = (
+        "rgba(15,23,42,0.72)"
+        if dark
+        else "rgba(255,255,255,0.92)"
+    )
+
+    border = (
+        "rgba(255,255,255,0.08)"
+        if dark
+        else "rgba(0,0,0,0.08)"
+    )
 
     st.markdown(f"""
     <style>
 
-    /* =========================
-       BUGFIX: Hide Streamlit default UI
-    ========================= */
     #MainMenu {{
         visibility:hidden;
     }}
@@ -185,182 +198,204 @@ def apply_theme():
         visibility:hidden;
     }}
 
-    .block-container {{
-        padding-top:1rem;
-        padding-bottom:7rem;
-    }}
-
-    /* =========================
-       PREMIUM APP BACKGROUND
-    ========================= */
     .stApp {{
         background:
-        radial-gradient(circle at 0% 0%, rgba(0,255,213,0.12), transparent 30%),
-        radial-gradient(circle at 100% 0%, rgba(59,130,246,0.15), transparent 25%),
-        radial-gradient(circle at 50% 100%, rgba(168,85,247,0.12), transparent 30%),
-        linear-gradient(145deg,#020617,#050816,#020617);
+        radial-gradient(circle at top left,
+        rgba(0,255,213,0.10),
+        transparent 25%),
+
+        radial-gradient(circle at top right,
+        rgba(59,130,246,0.12),
+        transparent 25%),
+
+        radial-gradient(circle at bottom,
+        rgba(168,85,247,0.10),
+        transparent 35%),
+
+        {bg};
+
         color:{text};
-        overflow-x:hidden;
     }}
 
     html, body, [class*="css"] {{
         color:{text};
         font-family:Inter,sans-serif;
-        scroll-behavior:smooth;
     }}
 
-    /* =========================
-       SIDEBAR
-    ========================= */
     section[data-testid="stSidebar"] {{
         background:
-        linear-gradient(180deg, rgba(15,23,42,0.96), rgba(2,6,23,0.96));
+        linear-gradient(
+        180deg,
+        rgba(2,6,23,0.98),
+        rgba(15,23,42,0.96)
+        );
+
         border-right:1px solid {border};
         backdrop-filter:blur(20px);
-        box-shadow:0 0 40px rgba(0,255,213,0.08);
     }}
 
-    section[data-testid="stSidebar"] * {{
-        color:white !important;
-    }}
-
-    /* =========================
-       HERO
-    ========================= */
     .hero {{
-        position:relative;
         text-align:center;
-        padding:40px 10px 20px;
+        padding:30px 10px 15px;
         animation:fadeIn 1s ease;
-    }}
-
-    .hero::before {{
-        content:"";
-        position:absolute;
-        inset:0;
-        background:radial-gradient(circle, rgba(0,255,213,0.08), transparent 70%);
-        filter:blur(50px);
-        z-index:-1;
     }}
 
     .hero-title {{
         font-size:72px;
         font-weight:900;
-        letter-spacing:2px;
-        background:linear-gradient(90deg,#00ffd5,#3b82f6,#a855f7,#00ffd5);
+
+        background:
+        linear-gradient(
+        90deg,
+        #00ffd5,
+        #3b82f6,
+        #a855f7,
+        #00ffd5
+        );
+
         background-size:300% 300%;
-        animation:gradientFlow 8s ease infinite;
+
+        animation:gradientMove 8s ease infinite;
+
         -webkit-background-clip:text;
         -webkit-text-fill-color:transparent;
-        text-shadow:0 0 35px rgba(0,255,213,0.25);
+
+        text-shadow:
+        0 0 35px rgba(0,255,213,0.18);
     }}
 
     .hero-sub {{
         color:#94a3b8;
-        margin-top:12px;
-        font-size:16px;
+        margin-top:10px;
         letter-spacing:2px;
-        text-transform:uppercase;
+        font-size:15px;
     }}
 
     .mode-box {{
-        margin-top:22px;
+        margin-top:18px;
+
         display:inline-block;
-        padding:15px 22px;
+
+        padding:14px 20px;
+
         border-radius:22px;
+
         background:rgba(255,255,255,0.04);
-        border:1px solid rgba(0,255,213,0.18);
+
+        border:1px solid rgba(0,255,213,0.15);
+
         backdrop-filter:blur(20px);
-        font-weight:700;
-        color:#ffffff;
+
         box-shadow:
-        0 0 25px rgba(0,255,213,0.08),
-        inset 0 0 15px rgba(255,255,255,0.03);
-        animation:floatCard 4s ease-in-out infinite;
+        0 0 25px rgba(0,255,213,0.06);
+
+        animation:floatCard 4s ease infinite;
     }}
 
-    /* =========================
-       CHAT
-    ========================= */
     .chat-shell {{
         max-width:1100px;
         margin:auto;
         padding-bottom:140px;
-        animation:fadeIn 0.8s ease;
     }}
 
     .user {{
-        position:relative;
         background:
-        linear-gradient(135deg,#2563eb,#00ffd5);
-        padding:18px;
-        border-radius:26px 26px 8px 26px;
-        width:fit-content;
-        max-width:78%;
-        margin:18px 0 18px auto;
-        color:white;
-        font-weight:600;
-        box-shadow:
-        0 15px 35px rgba(37,99,235,0.45),
-        0 0 25px rgba(0,255,213,0.15);
-        word-wrap:break-word;
-        animation:slideRight 0.4s ease;
-        border:1px solid rgba(255,255,255,0.12);
-    }}
+        linear-gradient(
+        135deg,
+        #2563eb,
+        #00ffd5
+        );
 
-    .user:hover {{
-        transform:translateY(-2px) scale(1.01);
-        transition:0.3s;
+        padding:18px;
+
+        border-radius:24px 24px 8px 24px;
+
+        width:fit-content;
+
+        max-width:78%;
+
+        margin:18px 0 18px auto;
+
+        color:white;
+
+        font-weight:600;
+
+        word-wrap:break-word;
+
+        box-shadow:
+        0 15px 35px rgba(37,99,235,0.35);
+
+        animation:slideRight .35s ease;
     }}
 
     .ai {{
-        position:relative;
         background:{card};
+
         padding:20px;
-        border-radius:26px 26px 26px 8px;
+
+        border-radius:24px 24px 24px 8px;
+
         width:fit-content;
+
         max-width:82%;
+
         margin:18px auto 18px 0;
+
         border:1px solid {border};
-        backdrop-filter:blur(22px);
+
+        backdrop-filter:blur(20px);
+
         line-height:1.8;
+
         word-wrap:break-word;
+
         box-shadow:
-        0 15px 35px rgba(0,0,0,0.35),
-        0 0 30px rgba(0,255,213,0.05);
-        animation:slideLeft 0.4s ease;
+        0 15px 35px rgba(0,0,0,0.25);
+
+        animation:slideLeft .35s ease;
+
         overflow:hidden;
+
+        position:relative;
     }}
 
     .ai::before {{
         content:"";
+
         position:absolute;
+
         top:0;
         left:-120%;
+
         width:100%;
         height:100%;
-        background:linear-gradient(
-            90deg,
-            transparent,
-            rgba(255,255,255,0.08),
-            transparent
+
+        background:
+        linear-gradient(
+        90deg,
+        transparent,
+        rgba(255,255,255,0.08),
+        transparent
         );
-        animation:shine 5s infinite;
+
+        animation:shine 6s infinite;
     }}
 
     .typing {{
         display:flex;
-        align-items:center;
         gap:6px;
+        align-items:center;
     }}
 
     .typing span {{
         width:10px;
         height:10px;
-        background:#00ffd5;
+
         border-radius:50%;
+
+        background:#00ffd5;
+
         animation:bounce 1s infinite;
-        display:inline-block;
     }}
 
     .typing span:nth-child(2) {{
@@ -371,138 +406,115 @@ def apply_theme():
         animation-delay:0.3s;
     }}
 
-    /* =========================
-       PREMIUM INPUT
-    ========================= */
     div[data-testid="stChatInput"] {{
         position:fixed;
-        bottom:18px;
+
+        bottom:15px;
+
         left:50%;
+
         transform:translateX(-50%);
+
         width:min(1100px,92%);
+
         z-index:999;
-        animation:fadeInUp 0.5s ease;
     }}
 
     div[data-testid="stChatInput"] textarea {{
-        background:rgba(15,23,42,0.88) !important;
-        border:1px solid rgba(0,255,213,0.18) !important;
-        border-radius:22px !important;
-        color:white !important;
-        backdrop-filter:blur(20px);
-        box-shadow:
-        0 0 30px rgba(0,255,213,0.06),
-        inset 0 0 10px rgba(255,255,255,0.02);
-        padding:18px !important;
-        font-size:16px !important;
-    }}
-
-    div[data-testid="stChatInput"] textarea:focus {{
-        border:1px solid #00ffd5 !important;
-        box-shadow:
-        0 0 25px rgba(0,255,213,0.35) !important;
-    }}
-
-    /* =========================
-       BUTTONS
-    ========================= */
-    .stButton>button {{
-        width:100%;
-        border:none;
-        border-radius:18px;
-        padding:12px 18px;
         background:
-        linear-gradient(135deg,#00ffd5,#2563eb);
-        color:white;
-        font-weight:800;
-        transition:all 0.3s ease;
-        box-shadow:0 10px 25px rgba(0,255,213,0.15);
-    }}
+        rgba(15,23,42,0.88) !important;
 
-    .stButton>button:hover {{
-        transform:translateY(-3px) scale(1.02);
-        box-shadow:
-        0 15px 35px rgba(0,255,213,0.28);
-    }}
+        border:
+        1px solid rgba(0,255,213,0.16) !important;
 
-    /* =========================
-       INPUTS
-    ========================= */
-    .stTextInput input {{
-        border-radius:16px !important;
-        background:rgba(15,23,42,0.8) !important;
+        border-radius:22px !important;
+
         color:white !important;
-        border:1px solid rgba(255,255,255,0.08) !important;
-        padding:12px !important;
+
+        padding:18px !important;
+
+        box-shadow:
+        0 0 30px rgba(0,255,213,0.08);
+
+        backdrop-filter:blur(20px);
     }}
 
-    .stSelectbox div[data-baseweb="select"] {{
-        background:rgba(15,23,42,0.85) !important;
-        border-radius:16px !important;
+    .stButton > button {{
+        width:100%;
+
+        border:none;
+
+        border-radius:18px;
+
+        padding:12px 18px;
+
+        background:
+        linear-gradient(
+        135deg,
+        #00ffd5,
+        #2563eb
+        );
+
+        color:white;
+
+        font-weight:800;
+
+        transition:all .3s ease;
     }}
 
-    /* =========================
-       ANIMATIONS
-    ========================= */
+    .stButton > button:hover {{
+        transform:translateY(-2px);
+
+        box-shadow:
+        0 12px 30px rgba(0,255,213,0.25);
+    }}
+
     @keyframes bounce {{
+
         0%,80%,100% {{
-            transform:scale(0.7);
-            opacity:0.5;
+            transform:scale(.7);
+            opacity:.5;
         }}
+
         40% {{
             transform:scale(1.2);
             opacity:1;
         }}
     }}
 
-    @keyframes gradientFlow {{
-        0% {{
-            background-position:0% 50%;
-        }}
-        50% {{
-            background-position:100% 50%;
-        }}
-        100% {{
-            background-position:0% 50%;
-        }}
-    }}
-
     @keyframes shine {{
+
         0% {{
             left:-120%;
         }}
+
         100% {{
             left:120%;
         }}
     }}
 
-    @keyframes fadeIn {{
-        from {{
-            opacity:0;
-            transform:translateY(10px);
-        }}
-        to {{
-            opacity:1;
-            transform:translateY(0px);
-        }}
-    }}
+    @keyframes gradientMove {{
 
-    @keyframes fadeInUp {{
-        from {{
-            opacity:0;
-            transform:translate(-50%,20px);
+        0% {{
+            background-position:0% 50%;
         }}
-        to {{
-            opacity:1;
-            transform:translate(-50%,0px);
+
+        50% {{
+            background-position:100% 50%;
+        }}
+
+        100% {{
+            background-position:0% 50%;
         }}
     }}
 
     @keyframes slideLeft {{
+
         from {{
             opacity:0;
-            transform:translateX(-20px);
+            transform:translateX(-15px);
         }}
+
         to {{
             opacity:1;
             transform:translateX(0px);
@@ -510,23 +522,39 @@ def apply_theme():
     }}
 
     @keyframes slideRight {{
+
         from {{
             opacity:0;
-            transform:translateX(20px);
+            transform:translateX(15px);
         }}
+
         to {{
             opacity:1;
             transform:translateX(0px);
         }}
     }}
 
+    @keyframes fadeIn {{
+
+        from {{
+            opacity:0;
+        }}
+
+        to {{
+            opacity:1;
+        }}
+    }}
+
     @keyframes floatCard {{
+
         0% {{
             transform:translateY(0px);
         }}
+
         50% {{
             transform:translateY(-4px);
         }}
+
         100% {{
             transform:translateY(0px);
         }}
@@ -541,6 +569,7 @@ apply_theme()
 # HEADER
 # =========================
 def render_header():
+
     st.markdown(f"""
     <div class='hero'>
 
@@ -553,14 +582,16 @@ def render_header():
         </div>
 
         <div class='mode-box'>
-            🧠 <span style="color:#00ffd5;">
-                {st.session_state.get("mode", "Normal")} MODE
+
+            🧠
+            <span style='color:#00ffd5;'>
+                {st.session_state.mode} MODE
             </span>
 
             &nbsp;&nbsp;|&nbsp;&nbsp;
 
             👑 Founder:
-            <span style="color:#ffffff;">
+            <span style='color:white;'>
                 Tanishq
             </span>
 
@@ -571,15 +602,15 @@ def render_header():
             &nbsp;&nbsp;|&nbsp;&nbsp;
 
             🌐 Web:
-            <span style="color:#00ffd5;">
-                {"ON" if st.session_state.get("use_web", True) else "OFF"}
+            <span style='color:#00ffd5;'>
+                {"ON" if st.session_state.use_web else "OFF"}
             </span>
+
         </div>
 
     </div>
     """, unsafe_allow_html=True)
 
-# BUGFIX: ensure header is called AFTER definition (fixes NameError)
 render_header()
 
 # =========================
@@ -590,9 +621,6 @@ def hash_password(password):
 
 def register(username, password):
 
-    # =========================
-    # BUGFIX: sanitize username/password
-    # =========================
     username = username.strip()
     password = password.strip()
 
@@ -603,28 +631,44 @@ def register(username, password):
         return False
 
     try:
+
         cursor.execute(
-            "INSERT INTO users(username,password) VALUES(?,?)",
-            (username, hash_password(password))
+            """
+            INSERT INTO users(username,password)
+            VALUES(?,?)
+            """,
+            (
+                username,
+                hash_password(password)
+            )
         )
+
         conn.commit()
+
         return True
 
     except Exception as e:
+
         logging.error(e)
+
         return False
 
 def login(username, password):
 
-    # =========================
-    # BUGFIX: sanitize login fields
-    # =========================
     username = username.strip()
     password = password.strip()
 
     cursor.execute(
-        "SELECT * FROM users WHERE username=? AND password=?",
-        (username, hash_password(password))
+        """
+        SELECT *
+        FROM users
+        WHERE username=?
+        AND password=?
+        """,
+        (
+            username,
+            hash_password(password)
+        )
     )
 
     return cursor.fetchone()
@@ -636,113 +680,123 @@ if not st.session_state.logged_in:
 
     st.markdown("""
     <div style='
-        max-width:540px;
-        margin:auto;
-        margin-top:40px;
-        padding:40px;
-        background:rgba(15,23,42,0.72);
-        border-radius:28px;
-        border:1px solid rgba(255,255,255,0.08);
-        backdrop-filter:blur(25px);
-        box-shadow:
-        0 0 50px rgba(0,255,213,0.08),
-        0 20px 50px rgba(0,0,0,0.45);
-        animation:fadeIn 0.6s ease;
+    max-width:550px;
+    margin:auto;
+    margin-top:40px;
+
+    padding:40px;
+
+    background:rgba(15,23,42,0.72);
+
+    border-radius:28px;
+
+    border:1px solid rgba(255,255,255,0.08);
+
+    backdrop-filter:blur(25px);
+
+    box-shadow:
+    0 0 50px rgba(0,255,213,0.08),
+    0 20px 50px rgba(0,0,0,0.45);
     '>
     """, unsafe_allow_html=True)
 
-    st.markdown("""
-    <div style='text-align:center;margin-bottom:25px;'>
-        <h1 style='
-            font-size:42px;
-            margin:0;
-            background:linear-gradient(90deg,#00ffd5,#3b82f6,#a855f7);
-            -webkit-background-clip:text;
-            -webkit-text-fill-color:transparent;
-            font-weight:900;
-        '>
-            ⚡ AURVEXIS
-        </h1>
-
-        <div style='color:#94a3b8;margin-top:8px;'>
-            PREMIUM AI SYSTEM • BUILT BY AURVEXIS LABS
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    tab1, tab2 = st.tabs(["🔐 Login", "🚀 Register"])
+    tab1, tab2 = st.tabs([
+        "🔐 Login",
+        "🚀 Register"
+    ])
 
     with tab1:
 
         user = st.text_input(
             "Username",
-            placeholder="Enter your username"
+            placeholder="Enter username"
         )
 
         password = st.text_input(
             "Password",
             type="password",
-            placeholder="Enter your password"
+            placeholder="Enter password"
         )
 
         remember = st.checkbox("Remember Me")
 
-        # =========================
-        # BUGFIX: unique key to avoid Streamlit duplicate widget issue
-        # =========================
-        if st.button("Login", key="login_btn"):
+        if st.button(
+            "Login",
+            key="login_btn"
+        ):
 
             if login(user, password):
 
                 st.session_state.logged_in = True
+
                 st.session_state.username = user.strip()
 
-                cursor.execute("UPDATE users SET remember=0")
+                cursor.execute(
+                    "UPDATE users SET remember=0"
+                )
 
                 if remember:
+
                     cursor.execute(
-                        "UPDATE users SET remember=1 WHERE username=?",
+                        """
+                        UPDATE users
+                        SET remember=1
+                        WHERE username=?
+                        """,
                         (user.strip(),)
                     )
 
                 conn.commit()
 
-                st.success("Welcome back to AURVEXIS AI ⚡")
+                st.success(
+                    "Welcome to AURVEXIS ⚡"
+                )
+
                 time.sleep(1)
 
                 st.rerun()
 
             else:
-                st.error("Invalid credentials")
+
+                st.error(
+                    "Invalid credentials"
+                )
 
     with tab2:
 
         new_user = st.text_input(
             "New Username",
-            key="new_user",
-            placeholder="Create username"
+            key="new_user"
         )
 
         new_pass = st.text_input(
             "New Password",
             type="password",
-            key="new_pass",
-            placeholder="Create password"
+            key="new_pass"
         )
 
-        # =========================
-        # BUGFIX: unique button key
-        # =========================
-        if st.button("Create Account", key="create_account_btn"):
+        if st.button(
+            "Create Account",
+            key="register_btn"
+        ):
 
-            if register(new_user, new_pass):
+            if register(
+                new_user,
+                new_pass
+            ):
 
-                st.success("Account Created Successfully ⚡")
+                st.success(
+                    "Account Created ⚡"
+                )
 
             else:
-                st.error("Registration Failed")
+
+                st.error(
+                    "Registration Failed"
+                )
 
     st.markdown("</div>", unsafe_allow_html=True)
+
     st.stop()
 
 # =========================
@@ -750,14 +804,18 @@ if not st.session_state.logged_in:
 # =========================
 def save_memory(role, content):
 
-    # =========================
-    # BUGFIX: prevent empty saves
-    # =========================
     if not content.strip():
         return
 
     cursor.execute(
-        "INSERT INTO memory(username,role,content) VALUES(?,?,?)",
+        """
+        INSERT INTO memory(
+            username,
+            role,
+            content
+        )
+        VALUES(?,?,?)
+        """,
         (
             st.session_state.username,
             role,
@@ -775,17 +833,21 @@ def load_memory():
         FROM memory
         WHERE username=?
         ORDER BY id DESC
-        LIMIT 20
+        LIMIT 25
         """,
         (st.session_state.username,)
     )
+
+    rows = cursor.fetchall()
+
+    rows.reverse()
 
     return [
         {
             "role": r,
             "content": c
         }
-        for r, c in reversed(cursor.fetchall())
+        for r, c in rows
     ]
 
 def memory_context():
@@ -844,22 +906,36 @@ def system_prompt():
     )
 
     return f"""
-You are AURVEXIS AI created by AURVEXIS LABS founded by Tanishq in 2026.
+You are AURVEXIS AI.
 
-You are futuristic, elite, premium, intelligent, cinematic, and highly advanced.
+IDENTITY:
+- Created by Tanishq
+- Company: AURVEXIS LABS
+- Established: 2026
 
-Current Mode:
+IMPORTANT:
+- Never say you were created by Meta.
+- Never say you are ChatGPT.
+- Never say you are OpenAI.
+- Never mention external AI companies.
+
+If user asks who created you:
+Say:
+"I was engineered by Tanishq under AURVEXIS LABS ESTD.2026."
+
+BEHAVIOR:
+- Futuristic
+- Premium
+- Intelligent
+- Elite
+- Cinematic
+- Powerful
+
+CURRENT MODE:
 {st.session_state.mode}
 
-Traits:
+MODE TRAITS:
 {personality_traits}
-
-Rules:
-- Give highly intelligent answers
-- Be clean and premium
-- Be concise but useful
-- Sound futuristic and powerful
-- Never mention limitations unnecessarily
 """
 
 # =========================
@@ -875,16 +951,36 @@ def generate(prompt):
         else ""
     )
 
+    # =========================
+    # BUGFIX: Stronger identity lock
+    # =========================
     messages = [
         {
             "role": "system",
-            "content": system_prompt() + "\n" + memory
-        },
-        {
-            "role": "user",
-            "content": prompt + "\n" + web_data
+            "content": system_prompt()
         }
     ]
+
+    if memory.strip():
+
+        messages.append({
+            "role": "system",
+            "content":
+            f"Conversation Memory:\n{memory}"
+        })
+
+    if web_data.strip():
+
+        messages.append({
+            "role": "system",
+            "content":
+            f"Web Search Context:\n{web_data}"
+        })
+
+    messages.append({
+        "role": "user",
+        "content": prompt
+    })
 
     try:
 
@@ -898,9 +994,6 @@ def generate(prompt):
 
         response = ""
 
-        # =========================
-        # BUGFIX: smooth streaming container
-        # =========================
         box = st.empty()
 
         box.markdown("""
@@ -918,14 +1011,18 @@ def generate(prompt):
             if not chunk.choices:
                 continue
 
-            delta = chunk.choices[0].delta.content or ""
+            delta = (
+                chunk.choices[0]
+                .delta
+                .content or ""
+            )
 
             response += delta
 
-            # =========================
-            # BUGFIX: prevent HTML breaking
-            # =========================
-            safe_response = clean(response).replace("\n", "<br>")
+            safe_response = (
+                clean(response)
+                .replace("\n", "<br>")
+            )
 
             box.markdown(
                 f"""
@@ -949,9 +1046,16 @@ def generate(prompt):
 # =========================
 st.sidebar.markdown("""
 <h1 style='
-font-size:28px;
+font-size:30px;
 font-weight:900;
-background:linear-gradient(90deg,#00ffd5,#3b82f6);
+
+background:
+linear-gradient(
+90deg,
+#00ffd5,
+#3b82f6
+);
+
 -webkit-background-clip:text;
 -webkit-text-fill-color:transparent;
 '>
@@ -976,11 +1080,10 @@ theme = st.sidebar.selectbox(
     ["dark", "light"]
 )
 
-# =========================
-# BUGFIX: rerun only when theme changes
-# =========================
 if theme != st.session_state.theme:
+
     st.session_state.theme = theme
+
     st.rerun()
 
 st.sidebar.markdown("---")
@@ -988,23 +1091,35 @@ st.sidebar.markdown("---")
 st.sidebar.markdown(f"""
 <div style='
 padding:16px;
+
 border-radius:18px;
+
 background:rgba(255,255,255,0.04);
+
 border:1px solid rgba(255,255,255,0.06);
-backdrop-filter:blur(10px);
+
+backdrop-filter:blur(12px);
 '>
 👤 <b>{clean(st.session_state.username)}</b>
+
 <br><br>
+
 🏢 AURVEXIS LABS
+
 <br>
+
 🚀 ESTD.2026
 </div>
 """, unsafe_allow_html=True)
 
-st.sidebar.markdown("### ⚙️ System Status")
+st.sidebar.markdown("### ⚙️ SYSTEM STATUS")
 
 st.sidebar.success("AI CORE ONLINE")
-st.sidebar.info(f"Mode: {st.session_state.mode}")
+
+st.sidebar.info(
+    f"Mode: {st.session_state.mode}"
+)
+
 st.sidebar.info(
     f"Web Search: {'Enabled' if st.session_state.use_web else 'Disabled'}"
 )
@@ -1034,20 +1149,27 @@ if VOICE_AVAILABLE:
 
                 st.session_state.voice_text = text
 
-                st.sidebar.success(f"Recognized: {text}")
+                st.sidebar.success(
+                    f"Recognized: {text}"
+                )
 
         except Exception as e:
 
             logging.error(e)
 
-            st.sidebar.error("Voice recognition failed")
+            st.sidebar.error(
+                "Voice recognition failed"
+            )
 
 st.sidebar.markdown("---")
 
 if st.sidebar.button("🧹 Clear Chat"):
 
     cursor.execute(
-        "DELETE FROM memory WHERE username=?",
+        """
+        DELETE FROM memory
+        WHERE username=?
+        """,
         (st.session_state.username,)
     )
 
@@ -1060,7 +1182,11 @@ if st.sidebar.button("🧹 Clear Chat"):
 if st.sidebar.button("🚪 Logout"):
 
     cursor.execute(
-        "UPDATE users SET remember=0 WHERE username=?",
+        """
+        UPDATE users
+        SET remember=0
+        WHERE username=?
+        """,
         (st.session_state.username,)
     )
 
@@ -1076,23 +1202,29 @@ if st.sidebar.button("🚪 Logout"):
 # =========================
 # CHAT UI
 # =========================
-st.markdown("<div class='chat-shell'>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='chat-shell'>",
+    unsafe_allow_html=True
+)
 
 # =========================
-# BUGFIX: load memory chat only once
+# BUGFIX: Prevent duplicate loading
 # =========================
 if not st.session_state.chat_loaded:
 
-    previous_messages = load_memory()
+    previous = load_memory()
 
-    for item in previous_messages:
+    for item in previous:
         st.session_state.chat.append(item)
 
     st.session_state.chat_loaded = True
 
 for msg in st.session_state.chat:
 
-    content = clean(msg["content"]).replace("\n", "<br>")
+    content = (
+        clean(msg["content"])
+        .replace("\n", "<br>")
+    )
 
     if msg["role"] == "user":
 
@@ -1119,23 +1251,18 @@ for msg in st.session_state.chat:
 # =========================
 # INPUT
 # =========================
-
-# =========================
-# BUGFIX: support voice recognized text
-# =========================
-chat_placeholder = (
+placeholder = (
     st.session_state.voice_text
     if st.session_state.voice_text
     else "Ask AURVEXIS anything..."
 )
 
-prompt = st.chat_input(chat_placeholder)
+prompt = st.chat_input(placeholder)
 
-# =========================
-# BUGFIX: fallback to voice text
-# =========================
 if not prompt and st.session_state.voice_text:
+
     prompt = st.session_state.voice_text
+
     st.session_state.voice_text = ""
 
 if prompt:
@@ -1143,9 +1270,13 @@ if prompt:
     prompt = prompt.strip()
 
     # =========================
-    # BUGFIX: prevent spam requests
+    # BUGFIX: Anti spam
     # =========================
-    if time.time() - st.session_state.last_request < 1:
+    if (
+        time.time()
+        - st.session_state.last_request
+        < 1
+    ):
 
         st.warning("Slow down ⚡")
 
@@ -1153,9 +1284,6 @@ if prompt:
 
     st.session_state.last_request = time.time()
 
-    # =========================
-    # BUGFIX: prevent empty prompt crash
-    # =========================
     if len(prompt) == 0:
         st.stop()
 
@@ -1164,11 +1292,17 @@ if prompt:
         "content": prompt
     })
 
-    save_memory("user", prompt)
+    save_memory(
+        "user",
+        prompt
+    )
 
     reply = generate(prompt)
 
-    save_memory("assistant", reply)
+    save_memory(
+        "assistant",
+        reply
+    )
 
     st.session_state.chat.append({
         "role": "assistant",
@@ -1177,7 +1311,10 @@ if prompt:
 
     st.rerun()
 
-st.markdown("</div>", unsafe_allow_html=True)
+st.markdown(
+    "</div>",
+    unsafe_allow_html=True
+)
 
 # =========================
 # FOOTER
@@ -1185,11 +1322,17 @@ st.markdown("</div>", unsafe_allow_html=True)
 st.markdown("""
 <div style='
 text-align:center;
-padding:30px 0 10px 0;
+
+padding:30px 0 12px;
+
 color:#64748b;
+
 font-size:13px;
+
 letter-spacing:1px;
 '>
-⚡ POWERED BY AURVEXIS LABS • FOUNDED BY TANISHQ • ESTD.2026
+⚡ POWERED BY AURVEXIS LABS •
+FOUNDED BY TANISHQ •
+ESTD.2026
 </div>
 """, unsafe_allow_html=True)

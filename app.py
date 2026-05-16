@@ -11,6 +11,7 @@ import hashlib
 import logging
 import sqlite3
 import html
+import threading
 from dotenv import load_dotenv
 from groq import Groq
 from duckduckgo_search import DDGS
@@ -31,7 +32,7 @@ st.set_page_config(
 try:
     import speech_recognition as sr
     VOICE_AVAILABLE = True
-except:
+except Exception:
     VOICE_AVAILABLE = False
 
 # =========================
@@ -50,6 +51,7 @@ load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 if not GROQ_API_KEY:
+
     st.error("Missing GROQ_API_KEY in .env")
     st.stop()
 
@@ -61,19 +63,28 @@ groq = Groq(api_key=GROQ_API_KEY)
 # =========================
 # DATABASE
 # =========================
+
+# BUGFIX: timeout prevents random database locked errors
 conn = sqlite3.connect(
     "aurvexis.db",
-    check_same_thread=False
+    check_same_thread=False,
+    timeout=30
 )
+
+# BUGFIX: thread lock for sqlite stability
+db_lock = threading.Lock()
 
 cursor = conn.cursor()
 
 # =========================
 # BUGFIX: Better SQLite performance
 # =========================
-cursor.execute("PRAGMA journal_mode=WAL")
-cursor.execute("PRAGMA synchronous=NORMAL")
-cursor.execute("PRAGMA temp_store=MEMORY")
+with db_lock:
+
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.execute("PRAGMA temp_store=MEMORY")
+    cursor.execute("PRAGMA foreign_keys=ON")
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users(
@@ -107,7 +118,9 @@ defaults = {
     "use_web": True,
     "chat_loaded": False,
     "last_request": 0,
-    "voice_text": ""
+    "voice_text": "",
+    "last_render_hash": "",
+    "streaming": False
 }
 
 for key, value in defaults.items():
@@ -118,16 +131,19 @@ for key, value in defaults.items():
 # =========================
 # AUTO LOGIN
 # =========================
-cursor.execute("""
-SELECT username
-FROM users
-WHERE remember=1
-LIMIT 1
-""")
+with db_lock:
 
-auto = cursor.fetchone()
+    cursor.execute("""
+    SELECT username
+    FROM users
+    WHERE remember=1
+    LIMIT 1
+    """)
+
+    auto = cursor.fetchone()
 
 if auto and not st.session_state.logged_in:
+
     st.session_state.logged_in = True
     st.session_state.username = auto[0]
 
@@ -135,6 +151,7 @@ if auto and not st.session_state.logged_in:
 # PERSONALITIES
 # =========================
 PERSONALITIES = {
+
     "Normal": [
         "balanced",
         "intelligent",
@@ -181,6 +198,19 @@ def apply_theme():
         "rgba(255,255,255,0.08)"
         if dark
         else "rgba(0,0,0,0.08)"
+    )
+
+    # BUGFIX: consistent textarea colors for light mode
+    input_bg = (
+        "rgba(15,23,42,0.88)"
+        if dark
+        else "rgba(255,255,255,0.96)"
+    )
+
+    input_text = (
+        "white"
+        if dark
+        else "#0f172a"
     )
 
     st.markdown(f"""
@@ -322,6 +352,8 @@ def apply_theme():
 
         word-wrap:break-word;
 
+        overflow-wrap:anywhere;
+
         box-shadow:
         0 15px 35px rgba(37,99,235,0.35);
 
@@ -348,6 +380,8 @@ def apply_theme():
         line-height:1.8;
 
         word-wrap:break-word;
+
+        overflow-wrap:anywhere;
 
         box-shadow:
         0 15px 35px rgba(0,0,0,0.25);
@@ -422,14 +456,14 @@ def apply_theme():
 
     div[data-testid="stChatInput"] textarea {{
         background:
-        rgba(15,23,42,0.88) !important;
+        {input_bg} !important;
 
         border:
         1px solid rgba(0,255,213,0.16) !important;
 
         border-radius:22px !important;
 
-        color:white !important;
+        color:{input_text} !important;
 
         padding:18px !important;
 
@@ -585,7 +619,7 @@ def render_header():
 
             🧠
             <span style='color:#00ffd5;'>
-                {st.session_state.mode} MODE
+                {clean(st.session_state.mode)} MODE
             </span>
 
             &nbsp;&nbsp;|&nbsp;&nbsp;
@@ -611,13 +645,22 @@ def render_header():
     </div>
     """, unsafe_allow_html=True)
 
+# =========================
+# BUGFIX: clean() used before declaration
+# =========================
+def clean(text):
+    return html.escape(str(text))
+
 render_header()
 
 # =========================
 # AUTH
 # =========================
 def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+
+    return hashlib.sha256(
+        password.encode("utf-8")
+    ).hexdigest()
 
 def register(username, password):
 
@@ -632,18 +675,20 @@ def register(username, password):
 
     try:
 
-        cursor.execute(
-            """
-            INSERT INTO users(username,password)
-            VALUES(?,?)
-            """,
-            (
-                username,
-                hash_password(password)
-            )
-        )
+        with db_lock:
 
-        conn.commit()
+            cursor.execute(
+                """
+                INSERT INTO users(username,password)
+                VALUES(?,?)
+                """,
+                (
+                    username,
+                    hash_password(password)
+                )
+            )
+
+            conn.commit()
 
         return True
 
@@ -658,20 +703,24 @@ def login(username, password):
     username = username.strip()
     password = password.strip()
 
-    cursor.execute(
-        """
-        SELECT *
-        FROM users
-        WHERE username=?
-        AND password=?
-        """,
-        (
-            username,
-            hash_password(password)
-        )
-    )
+    with db_lock:
 
-    return cursor.fetchone()
+        cursor.execute(
+            """
+            SELECT *
+            FROM users
+            WHERE username=?
+            AND password=?
+            """,
+            (
+                username,
+                hash_password(password)
+            )
+        )
+
+        result = cursor.fetchone()
+
+    return result
 
 # =========================
 # LOGIN PAGE
@@ -731,22 +780,28 @@ if not st.session_state.logged_in:
 
                 st.session_state.username = user.strip()
 
-                cursor.execute(
-                    "UPDATE users SET remember=0"
-                )
+                # BUGFIX: clear stale state after relogin
+                st.session_state.chat = []
+                st.session_state.chat_loaded = False
 
-                if remember:
+                with db_lock:
 
                     cursor.execute(
-                        """
-                        UPDATE users
-                        SET remember=1
-                        WHERE username=?
-                        """,
-                        (user.strip(),)
+                        "UPDATE users SET remember=0"
                     )
 
-                conn.commit()
+                    if remember:
+
+                        cursor.execute(
+                            """
+                            UPDATE users
+                            SET remember=1
+                            WHERE username=?
+                            """,
+                            (user.strip(),)
+                        )
+
+                    conn.commit()
 
                 st.success(
                     "Welcome to AURVEXIS ⚡"
@@ -804,41 +859,47 @@ if not st.session_state.logged_in:
 # =========================
 def save_memory(role, content):
 
-    if not content.strip():
+    # BUGFIX: prevent None crashes
+    if content is None:
         return
 
-    cursor.execute(
-        """
-        INSERT INTO memory(
-            username,
-            role,
-            content
+    if not str(content).strip():
+        return
+
+    with db_lock:
+
+        cursor.execute(
+            """
+            INSERT INTO memory(
+                username,
+                role,
+                content
+            )
+            VALUES(?,?,?)
+            """,
+            (
+                st.session_state.username,
+                role,
+                str(content)
+            )
         )
-        VALUES(?,?,?)
-        """,
-        (
-            st.session_state.username,
-            role,
-            content
+
+        conn.commit()def load_memory():
+
+    with db_lock:
+
+        cursor.execute(
+            """
+            SELECT role,content
+            FROM memory
+            WHERE username=?
+            ORDER BY id DESC
+            LIMIT 25
+            """,
+            (st.session_state.username,)
         )
-    )
 
-    conn.commit()
-
-def load_memory():
-
-    cursor.execute(
-        """
-        SELECT role,content
-        FROM memory
-        WHERE username=?
-        ORDER BY id DESC
-        LIMIT 25
-        """,
-        (st.session_state.username,)
-    )
-
-    rows = cursor.fetchall()
+        rows = cursor.fetchall()
 
     rows.reverse()
 
@@ -854,9 +915,12 @@ def memory_context():
 
     memories = load_memory()
 
+    # BUGFIX: prevent giant prompts causing token overflow
+    limited = memories[-12:]
+
     return "\n".join([
         f"{m['role']}: {m['content']}"
-        for m in memories
+        for m in limited
     ])
 
 # =========================
@@ -866,7 +930,8 @@ def web_search(query):
 
     try:
 
-        with DDGS() as ddgs:
+        # BUGFIX: DDGS versions sometimes fail without timeout
+        with DDGS(timeout=20) as ddgs:
 
             results = list(
                 ddgs.text(
@@ -875,23 +940,24 @@ def web_search(query):
                 )
             )
 
-        return "\n".join([
-            r["body"]
-            for r in results
-            if "body" in r
-        ])
+        clean_results = []
+
+        for r in results:
+
+            if isinstance(r, dict):
+
+                body = r.get("body", "")
+
+                if body:
+                    clean_results.append(body)
+
+        return "\n".join(clean_results)
 
     except Exception as e:
 
         logging.error(e)
 
         return ""
-
-# =========================
-# SAFE HTML
-# =========================
-def clean(text):
-    return html.escape(str(text))
 
 # =========================
 # SYSTEM PROMPT
@@ -979,10 +1045,13 @@ def generate(prompt):
 
     messages.append({
         "role": "user",
-        "content": prompt
+        "content": str(prompt)
     })
 
     try:
+
+        # BUGFIX: prevent concurrent stream corruption
+        st.session_state.streaming = True
 
         completion = groq.chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -1008,34 +1077,67 @@ def generate(prompt):
 
         for chunk in completion:
 
+            # BUGFIX: invalid chunk safety
+            if not hasattr(chunk, "choices"):
+                continue
+
             if not chunk.choices:
                 continue
 
-            delta = (
-                chunk.choices[0]
-                .delta
-                .content or ""
+            choice = chunk.choices[0]
+
+            if not hasattr(choice, "delta"):
+                continue
+
+            delta = getattr(
+                choice.delta,
+                "content",
+                ""
             )
 
-            response += delta
+            if delta is None:
+                delta = ""
+
+            response += str(delta)
 
             safe_response = (
                 clean(response)
                 .replace("\n", "<br>")
             )
 
-            box.markdown(
-                f"""
-                <div class='ai'>
-                    ⚡ {safe_response}
-                </div>
-                """,
-                unsafe_allow_html=True
+            # BUGFIX: reduce unnecessary rerenders
+            current_hash = hashlib.md5(
+                safe_response.encode("utf-8")
+            ).hexdigest()
+
+            if current_hash != st.session_state.last_render_hash:
+
+                st.session_state.last_render_hash = current_hash
+
+                box.markdown(
+                    f"""
+                    <div class='ai'>
+                        ⚡ {safe_response}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+        # BUGFIX: prevent blank response storage
+        if not response.strip():
+
+            response = (
+                "⚠️ Empty response generated. "
+                "Please try again."
             )
+
+        st.session_state.streaming = False
 
         return response
 
     except Exception as e:
+
+        st.session_state.streaming = False
 
         logging.error(e)
 
@@ -1065,9 +1167,15 @@ linear-gradient(
 
 st.sidebar.markdown("---")
 
+# BUGFIX: preserve mode state
+current_mode_index = list(
+    PERSONALITIES.keys()
+).index(st.session_state.mode)
+
 st.session_state.mode = st.sidebar.selectbox(
     "AI Mode",
-    list(PERSONALITIES.keys())
+    list(PERSONALITIES.keys()),
+    index=current_mode_index
 )
 
 st.session_state.use_web = st.sidebar.toggle(
@@ -1075,9 +1183,17 @@ st.session_state.use_web = st.sidebar.toggle(
     value=st.session_state.use_web
 )
 
+# BUGFIX: preserve theme state
+theme_index = (
+    0
+    if st.session_state.theme == "dark"
+    else 1
+)
+
 theme = st.sidebar.selectbox(
     "Theme",
-    ["dark", "light"]
+    ["dark", "light"],
+    index=theme_index
 )
 
 if theme != st.session_state.theme:
@@ -1139,6 +1255,12 @@ if VOICE_AVAILABLE:
 
                 st.sidebar.info("Listening...")
 
+                # BUGFIX: ambient noise adjustment
+                recognizer.adjust_for_ambient_noise(
+                    source,
+                    duration=0.5
+                )
+
                 audio = recognizer.listen(
                     source,
                     timeout=5,
@@ -1147,11 +1269,19 @@ if VOICE_AVAILABLE:
 
                 text = recognizer.recognize_google(audio)
 
-                st.session_state.voice_text = text
+                if text:
 
-                st.sidebar.success(
-                    f"Recognized: {text}"
-                )
+                    st.session_state.voice_text = text
+
+                    st.sidebar.success(
+                        f"Recognized: {text}"
+                    )
+
+        except sr.WaitTimeoutError:
+
+            st.sidebar.error(
+                "Voice timeout"
+            )
 
         except Exception as e:
 
@@ -1165,37 +1295,44 @@ st.sidebar.markdown("---")
 
 if st.sidebar.button("🧹 Clear Chat"):
 
-    cursor.execute(
-        """
-        DELETE FROM memory
-        WHERE username=?
-        """,
-        (st.session_state.username,)
-    )
+    with db_lock:
 
-    conn.commit()
+        cursor.execute(
+            """
+            DELETE FROM memory
+            WHERE username=?
+            """,
+            (st.session_state.username,)
+        )
+
+        conn.commit()
 
     st.session_state.chat = []
+    st.session_state.chat_loaded = False
 
     st.rerun()
 
 if st.sidebar.button("🚪 Logout"):
 
-    cursor.execute(
-        """
-        UPDATE users
-        SET remember=0
-        WHERE username=?
-        """,
-        (st.session_state.username,)
-    )
+    with db_lock:
 
-    conn.commit()
+        cursor.execute(
+            """
+            UPDATE users
+            SET remember=0
+            WHERE username=?
+            """,
+            (st.session_state.username,)
+        )
+
+        conn.commit()
 
     st.session_state.logged_in = False
     st.session_state.username = ""
     st.session_state.chat = []
     st.session_state.chat_loaded = False
+    st.session_state.voice_text = ""
+    st.session_state.streaming = False
 
     st.rerun()
 
@@ -1214,19 +1351,25 @@ if not st.session_state.chat_loaded:
 
     previous = load_memory()
 
+    # BUGFIX: prevent duplicate chat append
+    st.session_state.chat = []
+
     for item in previous:
+
         st.session_state.chat.append(item)
 
     st.session_state.chat_loaded = True
 
 for msg in st.session_state.chat:
 
+    role = msg.get("role", "")
+
     content = (
-        clean(msg["content"])
+        clean(msg.get("content", ""))
         .replace("\n", "<br>")
     )
 
-    if msg["role"] == "user":
+    if role == "user":
 
         st.markdown(
             f"""
@@ -1257,7 +1400,10 @@ placeholder = (
     else "Ask AURVEXIS anything..."
 )
 
-prompt = st.chat_input(placeholder)
+prompt = st.chat_input(
+    placeholder,
+    disabled=st.session_state.streaming
+)
 
 if not prompt and st.session_state.voice_text:
 
@@ -1267,7 +1413,7 @@ if not prompt and st.session_state.voice_text:
 
 if prompt:
 
-    prompt = prompt.strip()
+    prompt = str(prompt).strip()
 
     # =========================
     # BUGFIX: Anti spam
@@ -1285,6 +1431,15 @@ if prompt:
     st.session_state.last_request = time.time()
 
     if len(prompt) == 0:
+        st.stop()
+
+    # BUGFIX: limit oversized prompts
+    if len(prompt) > 12000:
+
+        st.error(
+            "Prompt too large."
+        )
+
         st.stop()
 
     st.session_state.chat.append({
@@ -1336,3 +1491,13 @@ FOUNDED BY TANISHQ •
 ESTD.2026
 </div>
 """, unsafe_allow_html=True)
+
+# =========================
+# BUGFIX: graceful db close
+# =========================
+def close_database():
+
+    try:
+        conn.close()
+    except Exception:
+        pass

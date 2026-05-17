@@ -699,4 +699,3 @@ if prompt:
         "role":"assistant",
         "content":response
     })
-```
